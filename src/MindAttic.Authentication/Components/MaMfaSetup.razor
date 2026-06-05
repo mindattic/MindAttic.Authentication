@@ -1,0 +1,79 @@
+@namespace MindAttic.Authentication.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using MindAttic.Authentication
+@using MindAttic.Authentication.Services
+@inject IMfaEnrollmentService Enrollment
+@inject AuthenticationStateProvider AuthState
+
+@* Interactive (the host renders this with an interactive render mode). Enrollment confirm is NOT a
+   sign-in, so it runs in the component directly — letting the one-time recovery codes render in place. *@
+<div class="ma-auth ma-mfa-setup">
+    @if (_recoveryCodes is not null)
+    {
+        <h3>Save your recovery codes</h3>
+        <p>Store these somewhere safe. Each works once if you lose your authenticator. They won't be shown again.</p>
+        <ul class="ma-recovery-codes">
+            @foreach (var rc in _recoveryCodes)
+            {
+                <li><code>@rc</code></li>
+            }
+        </ul>
+    }
+    else
+    {
+        <h3>Set up two-factor authentication</h3>
+        @if (_secret is not null)
+        {
+            <p>Add this key to your authenticator app (scan the otpauth URI as a QR, or type the key):</p>
+            <p><code class="ma-totp-secret">@_secret</code></p>
+            <p class="ma-otpauth-uri"><code>@_otpAuthUri</code></p>
+        }
+
+        <label class="ma-auth-field">
+            <span>Authenticator code</span>
+            <input @bind="_code" inputmode="numeric" autocomplete="one-time-code" />
+        </label>
+        <label class="ma-auth-field">
+            <span>Confirm your password</span>
+            <input @bind="_password" type="password" autocomplete="current-password" />
+        </label>
+
+        @if (_error is not null)
+        {
+            <p class="ma-auth-error" role="alert">@_error</p>
+        }
+
+        <button class="ma-auth-submit" @onclick="ConfirmAsync" disabled="@_busy">Enable two-factor</button>
+    }
+</div>
+
+@code {
+    private Guid _userId;
+    private string? _secret;
+    private string? _otpAuthUri;
+    private string? _code;
+    private string? _password;
+    private string? _error;
+    private bool _busy;
+    private IReadOnlyList<string>? _recoveryCodes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (!Guid.TryParse(state.User.FindFirst(MaClaims.UserId)?.Value, out _userId)) return;
+        var begin = await Enrollment.BeginAsync(_userId);
+        _secret = begin.SecretBase32;
+        _otpAuthUri = begin.OtpAuthUri;
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (_busy || _userId == Guid.Empty) return;
+        _busy = true;
+        _error = null;
+        var result = await Enrollment.ConfirmAsync(_userId, _code ?? "", _password ?? "");
+        if (result.Ok) _recoveryCodes = result.RecoveryCodes;
+        else _error = result.Error;
+        _busy = false;
+    }
+}

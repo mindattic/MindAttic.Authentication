@@ -1,0 +1,12 @@
+@namespace MindAttic.Authentication.Components
+@using Microsoft.AspNetCore.Components.Forms
+
+@* Posts to /_ma-auth/logout, which revokes the current session and signs out. *@
+<form method="post" action="/_ma-auth/logout" class="ma-auth ma-auth-logout">
+    <AntiforgeryToken />
+    <button type="submit" class="ma-auth-submit">@Text</button>
+</form>
+
+@code {
+    [Parameter] public string Text { get; set; } = "Sign out";
+}

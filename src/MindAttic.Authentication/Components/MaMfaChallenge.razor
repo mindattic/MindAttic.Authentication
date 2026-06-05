@@ -1,0 +1,30 @@
+@namespace MindAttic.Authentication.Components
+@using Microsoft.AspNetCore.Components.Forms
+
+@* Step-up after a password-verified (MFA-pending) session. Posts to /_ma-auth/mfa-challenge. *@
+<form method="post" action="/_ma-auth/mfa-challenge" class="ma-auth ma-auth-mfa">
+    <AntiforgeryToken />
+    <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+
+    @if (Error)
+    {
+        <p class="ma-auth-error" role="alert">That code was not accepted. Please try again.</p>
+    }
+
+    <label class="ma-auth-field">
+        <span>Authentication code</span>
+        <input name="code" inputmode="numeric" autocomplete="one-time-code" autocapitalize="none"
+               spellcheck="false" required />
+    </label>
+    <label class="ma-auth-checkbox">
+        <input type="checkbox" name="recovery" value="true" />
+        <span>Use a recovery code instead</span>
+    </label>
+
+    <button type="submit" class="ma-auth-submit">Verify</button>
+</form>
+
+@code {
+    [Parameter] public string? ReturnUrl { get; set; }
+    [Parameter] public bool Error { get; set; }
+}

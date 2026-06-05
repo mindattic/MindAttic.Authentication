@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Version>1.0.0</Version>
+    <RootNamespace>MindAttic.Authentication</RootNamespace>
+    <!-- Maximally-secure, Vault-backed authentication for the MindAttic ecosystem.
+         OWASP ASVS L2/L3 · NIST SP 800-63B AAL2. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Needs the full ASP.NET surface: authentication, Data Protection, antiforgery, hosting, components. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Secrets (pepper, DP KEK, reset-token key, bootstrap token) resolve through Vault. Only hard dep. -->
+    <PackageReference Include="MindAttic.Vault" Version="1.0.0" />
+    <!-- Argon2id (RFC 9106) — pure-managed, maintained. Exact-pinned per spec. -->
+    <PackageReference Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1" />
+    <!-- Legacy bcrypt verification for transparent upgrade-on-login. -->
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <!-- Canonical EF model owned by the library (entities + IEntityTypeConfiguration). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.8" />
+  </ItemGroup>
+
+</Project>

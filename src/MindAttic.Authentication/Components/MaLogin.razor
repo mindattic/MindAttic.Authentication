@@ -1,0 +1,30 @@
+@namespace MindAttic.Authentication.Components
+@using Microsoft.AspNetCore.Components.Forms
+
+@* Presentation only — posts to the antiforgery-protected /_ma-auth/login endpoint, which owns sign-in. *@
+<form method="post" action="/_ma-auth/login" class="ma-auth ma-auth-login">
+    <AntiforgeryToken />
+    <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+
+    @if (Error)
+    {
+        <p class="ma-auth-error" role="alert">Your sign-in attempt was unsuccessful. Please try again.</p>
+    }
+
+    <label class="ma-auth-field">
+        <span>Username</span>
+        <input name="userName" autocomplete="username" autocapitalize="none" spellcheck="false" required />
+    </label>
+    <label class="ma-auth-field">
+        <span>Password</span>
+        <input name="password" type="password" autocomplete="current-password" required />
+    </label>
+
+    <button type="submit" class="ma-auth-submit">Sign in</button>
+</form>
+
+@code {
+    [Parameter] public string? ReturnUrl { get; set; }
+    /// <summary>Show the generic failure message (e.g. bound to <c>?error=1</c>).</summary>
+    [Parameter] public bool Error { get; set; }
+}
