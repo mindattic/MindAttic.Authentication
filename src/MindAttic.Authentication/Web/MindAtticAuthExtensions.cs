@@ -58,6 +58,8 @@ public static class MindAtticAuthExtensions
         services.AddOptions<AuthResetOptions>().Bind(config.GetSection("MindAttic:Auth:Reset"));
         var session = config.GetSection("MindAttic:Auth:Session").Get<AuthSessionOptions>() ?? new AuthSessionOptions();
         var mfaOptions = config.GetSection("MindAttic:Auth:Mfa").Get<MfaOptions>() ?? new MfaOptions();
+        var policyOptions = config.GetSection("MindAttic:Auth:Policy").Get<AuthPolicyOptions>() ?? new AuthPolicyOptions();
+        services.AddSingleton(PasswordPolicyDescriptor.From(policyOptions));   // UI-facing policy description
 
         services.TryAddSingleton(TimeProvider.System);
 
@@ -77,6 +79,7 @@ public static class MindAtticAuthExtensions
         services.AddScoped<IMfaEnrollmentService, MfaEnrollmentService>();
         services.AddScoped<IPasswordChangeService, PasswordChangeService>();
         services.AddScoped<IPasswordResetService, PasswordResetService>();
+        services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<AuthBootstrapper>();
 
         services.AddHttpClient(AuthPolicyOptions.HibpHttpClient, c =>
