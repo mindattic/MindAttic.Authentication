@@ -24,7 +24,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -50,10 +50,19 @@ public sealed class DevAuthBypassOptions
 /// </summary>
 public static class DevAuthBypass
 {
-    /// <summary>Reads <c>.env</c> from the content root and registers <see cref="DevAuthBypassOptions"/>.</summary>
-    public static IServiceCollection AddDevAuthBypass(this IServiceCollection services)
+    /// <summary>Reads <c>.env</c> from the content root (or CWD / app base as fallbacks) and
+    /// registers <see cref="DevAuthBypassOptions"/>.</summary>
+    public static IServiceCollection AddDevAuthBypass(this IServiceCollection services, IConfiguration config)
     {
-        var env = ReadDotEnv(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
+        // The app's content root is the reliable location regardless of how it was launched
+        // (VS, `dotnet run --project`, published). Fall back to CWD and the app base dir.
+        var candidates = new List<string>();
+        var contentRoot = config[HostDefaults.ContentRootKey];
+        if (!string.IsNullOrEmpty(contentRoot)) candidates.Add(Path.Combine(contentRoot, ".env"));
+        candidates.Add(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
+        candidates.Add(Path.Combine(AppContext.BaseDirectory, ".env"));
+        var path = candidates.FirstOrDefault(File.Exists) ?? candidates[0];
+        var env = ReadDotEnv(path);
         services.Configure<DevAuthBypassOptions>(o =>
         {
             o.Enabled  = ParseBool(env.GetValueOrDefault("MA_DEV_AUTH_ENABLED"));
@@ -111,16 +120,17 @@ public static class DevAuthBypass
                     props.Items["la"] = now.ToString("O");
                     props.Items["sc"] = now.ToString("O");
 
-                    await ctx.SignInAsync(MaSchemes.Cookie, new ClaimsPrincipal(identity), props);
+                    var principal = new ClaimsPrincipal(identity);
+                    await ctx.SignInAsync(MaSchemes.Cookie, principal, props);  // persist (HTTPS cookie)
+                    ctx.User = principal;  // authenticate THIS request so [Authorize] passes now — works over http too
                     log?.LogWarning("[MA-DEV-AUTH-BYPASS] Auto-signed-in '{User}' on loopback (Development). " +
                                     "This code is compiled out of release builds.", opts.UserName);
-                    // Redirect to self so the freshly-set cookie is in play on the next pass.
-                    ctx.Response.Redirect(ctx.Request.GetEncodedPathAndQuery());
-                    return;
                 }
-
-                log?.LogWarning("[MA-DEV-AUTH-BYPASS] Enabled but login did not succeed (status {Status}) for '{User}' — " +
-                                "check MA_DEV_AUTH_USERNAME / MA_DEV_AUTH_PASSWORD in .env.", result.Status, opts.UserName);
+                else
+                {
+                    log?.LogWarning("[MA-DEV-AUTH-BYPASS] Enabled but login did not succeed (status {Status}) for '{User}' — " +
+                                    "check MA_DEV_AUTH_USERNAME / MA_DEV_AUTH_PASSWORD in .env.", result.Status, opts.UserName);
+                }
             }
 
             await next();

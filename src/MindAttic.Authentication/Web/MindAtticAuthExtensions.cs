@@ -157,7 +157,7 @@ public static class MindAtticAuthExtensions
 #if MA_DEV_AUTH
         // DEV ONLY (Debug-built packages only; compiled out of Release). Reads the
         // app's .env so a consumer needs no code — just drop a .env. See DevAuthBypass.
-        services.AddDevAuthBypass();
+        services.AddDevAuthBypass(config);
 #endif
 
         return services;
