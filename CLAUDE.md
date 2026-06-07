@@ -1,5 +1,20 @@
 # MindAttic.Authentication — project instructions
 
+## Codex — canonical documentation (read first)
+
+This repo uses the **MindAttic Codex** standard. The single source of truth lives in `docs/`:
+
+- `docs/BIBLE.md` — L0 source of truth (what it IS / is NOT / Architecture / **Laws** / verified state). Stable IDs like `{#AUTH-§5}`, `{#AUTH-LAW-1}`.
+- `docs/AMENDMENTS.md` — L1 append-only change log; **an amendment wins over the bible**.
+- `docs/USER_STORIES.md` — L2 stories; every `✅` names its verifying test.
+- `docs/rfc/` — design notes that graduate into L0+L2.
+- `docs/BIBLE.digest.md` — **generated**; never hand-edit (run the tool).
+- `docs/SECURITY_SPEC.md` and the other prose docs remain the exhaustive detail the bible navigates.
+
+Org-wide laws are inherited by reference from `../MindAttic.HouseRules.md` (do not restate them).
+
+**Working rules:** put a fact in exactly one layer and link to it by ID; keep `✅` honest (a build/test must prove it, per `#AUTH-§8`); after editing `docs/BIBLE.md` run `powershell -File tools/codex.ps1 digest` then `powershell -File tools/codex.ps1 doctor` — **doctor must pass**. A SessionStart hook (`.claude/hooks/inject-digest.ps1`) injects the digest as authoritative context.
+
 ## Downstream propagation (MANDATORY)
 
 This library is consumed as a **NuGet `PackageReference`** (not a project reference) by
