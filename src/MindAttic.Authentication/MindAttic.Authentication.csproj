@@ -13,6 +13,13 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
+  <!-- DEV-ONLY auth bypass (Web/DevAuthBypass.cs) is wrapped in `#if MA_DEV_AUTH`.
+       The symbol is defined ONLY in Debug, so a Release pack contains none of it.
+       Pack Debug for the local dev feed; pack Release (CI default) for prod. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DefineConstants>$(DefineConstants);MA_DEV_AUTH</DefineConstants>
+  </PropertyGroup>
+
   <!-- Needs the full ASP.NET surface: authentication, Data Protection, antiforgery, hosting, components. -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

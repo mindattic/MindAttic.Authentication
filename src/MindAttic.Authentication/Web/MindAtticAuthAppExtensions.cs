@@ -23,6 +23,13 @@ public static class MindAtticAuthAppExtensions
         app.UseAuthentication();
         app.UseAuthorization();
 
+#if MA_DEV_AUTH
+        // DEV ONLY (Debug-built packages only; compiled out of Release). Auto-signs-in
+        // the .env dev user on a loopback request in Development — gated again at runtime
+        // by Enabled + IsDevelopment + loopback. Must run after auth, before the forced-step.
+        app.UseDevAuthBypass();
+#endif
+
         // Forced-step: an authenticated user who must enroll MFA (or is an Admin without amr=mfa) or must
         // change their password is funneled to the right page before reaching anything else. Reads claims
         // baked at sign-in (no DB hit). Excludes the auth surface + framework/static paths.
