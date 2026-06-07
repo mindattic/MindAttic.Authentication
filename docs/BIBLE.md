@@ -60,7 +60,7 @@ MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication 
 ```
 
 ### 4.1 Projects / layout
-- `src/MindAttic.Authentication/` — the RCL, `net10.0`, packed to NuGet (`1.0.0`). Subfolders: `Options/`, `Secrets/`, `Crypto/`, `Entities/`, `Data/`, `Services/`, `Web/`, `Components/`, `Internal/`. (`MindAttic.Authentication.csproj`)
+- `src/MindAttic.Authentication/` — the RCL, `net10.0`, packed to NuGet (`1.0.0`). Subfolders: `Options/`, `Secrets/`, `Crypto/`, `Entities/`, `Data/`, `Services/`, `Web/`, `Components/`, `Internal/`. Root-level constants: `MaClaims.cs` (claim types, roles, policies, scheme names). (`MindAttic.Authentication.csproj`)
 - `tests/MindAttic.Authentication.Tests/` — NUnit 4 suite (184 tests). (`MindAttic.Authentication.Tests.csproj`)
 - **Only hard dependency:** `MindAttic.Vault` (exact-pinned). Plus Konscious Argon2 (1.3.1, exact-pin), BCrypt.Net-Next (legacy verify), EF Core Relational.
 - Adopted by three subscribers as a NuGet PackageReference — propagation procedure is mandatory; see [CLAUDE.md](../CLAUDE.md) and [LAW-7](#AUTH-LAW-7).
@@ -88,7 +88,7 @@ Canonical identity schema owned by the library, all tables in the isolated `auth
 - **UserStore** / **UserAdminService** — account lookup / admin create-disable (no hard delete). (`Services/UserStore.cs`, `Services/UserAdminService.cs`)
 - **AuthBootstrapper** — race-safe first-run admin seed gated on a Vault bootstrap token. (`Services/AuthBootstrapper.cs`)
 - **ConfigAuthSecrets** (`IAuthSecrets`) — fail-closed Vault secret access. (`Secrets/ConfigAuthSecrets.cs`)
-- Web seam — `AddMindAtticAuthentication` (`Web/MindAtticAuthExtensions.cs`), `UseMindAtticAuthentication` (`Web/MindAtticAuthAppExtensions.cs`), `MapMindAtticAuthEndpoints` (`Web/AuthEndpoints.cs`), `ApplyMindAtticAuthConfiguration` (`Data/AuthModel.cs`), `MaRevalidatingAuthenticationStateProvider` (`Web/MaRevalidatingAuthenticationStateProvider.cs`).
+- Web seam — `AddMindAtticAuthentication` (`Web/MindAtticAuthExtensions.cs`), `UseMindAtticAuthentication` (`Web/MindAtticAuthAppExtensions.cs`), `MapMindAtticAuthEndpoints` (`Web/AuthEndpoints.cs`), `ApplyMindAtticAuthConfiguration` (`Data/AuthModel.cs`), `MaRevalidatingAuthenticationStateProvider` (`Web/MaRevalidatingAuthenticationStateProvider.cs`), `CookieValidation` (`Web/CookieValidation.cs` — idle timeout + SecurityStamp recheck on the HTTP path), `IMaClaimsAugmentor` (`Web/IMaClaimsAugmentor.cs` — app hook to bake extra claims at sign-in), `DevAuthBypass` (`Web/DevAuthBypass.cs` — `#if MA_DEV_AUTH` Debug-only; compiled out of Release builds entirely).
 
 ## 5. The Laws {#AUTH-§5}
 This project **inherits all org-wide laws** in [`MindAttic.HouseRules.md`](../../MindAttic.HouseRules.md) by reference (do not restate). Most directly load-bearing here: [HOUSE-LAW-1](../../MindAttic.HouseRules.md#HOUSE-LAW-1) (whole-number versioning), [HOUSE-LAW-2](../../MindAttic.HouseRules.md#HOUSE-LAW-2) (soft-disable), [HOUSE-LAW-3](../../MindAttic.HouseRules.md#HOUSE-LAW-3) (Vault secrets), [HOUSE-LAW-7](../../MindAttic.HouseRules.md#HOUSE-LAW-7) (adopt this library), [HOUSE-LAW-8](../../MindAttic.HouseRules.md#HOUSE-LAW-8) (done = verified). The following are **project-specific** laws.

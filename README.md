@@ -177,7 +177,7 @@ MindAttic.Authentication/
 │  ├─ Data/      ApplyMindAtticAuthConfiguration (auth schema) ✅
 │  ├─ Services/  lockout ✅ · audit ✅ · policy/HIBP ✅ · TOTP/recovery ✅ · login pipeline ✅ · MFA-enroll ✅ · change-pw ✅ · bootstrap ✅ · password-reset(email) 📋
 │  ├─ Web/       DI ✅ · cookie+MFA-pending schemes ✅ · revalidating auth-state ✅ · UseMindAtticAuthentication+CSP ✅ · endpoints (login/mfa/logout/change-pw) ✅ · startup-filter 📋
-│  └─ Components/ MaLogin ✅ · MaLogout ✅ · MaChangePassword ✅ · MaMfaChallenge ✅ · MaMfaSetup ✅ · MaAccount 📋
+│  └─ Components/ MaLogin ✅ · MaLogout ✅ · MaChangePassword ✅ · MaMfaChallenge ✅ · MaMfaSetup ✅ · MaForgotPassword ✅ · MaResetPassword ✅
 ├─ tools/        provisioning CLI (pepper/KEK/keys)        📋
 └─ docs/SECURITY_SPEC.md   (Legion-hardened, red-teamed)   ✅
 

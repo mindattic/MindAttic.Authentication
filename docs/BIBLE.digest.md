@@ -34,4 +34,4 @@ This project **inherits all org-wide laws** in [`MindAttic.HouseRules.md`](../..
 - done: 20 | partial: 9 | planned: 7 | cut: 1
 
 ## Latest amendment (amendment wins over the bible)
-- AUTH-A1 — Adopt the Codex documentation standard (supersedes —)
+- AUTH-A2 — Codex full-sync 2026-06-07: reconcile §4 architecture canon to disk (supersedes AUTH-A1 §4 coverage)
