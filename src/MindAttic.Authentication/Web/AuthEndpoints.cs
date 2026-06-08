@@ -21,9 +21,12 @@ namespace MindAttic.Authentication.Web;
 /// </summary>
 public static class AuthEndpoints
 {
-    public static IEndpointRouteBuilder MapMindAtticAuthEndpoints(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapMindAtticAuthEndpoints(
+        this IEndpointRouteBuilder endpoints,
+        Action<RouteGroupBuilder>? configureGroup = null)
     {
         var group = endpoints.MapGroup("/_ma-auth");
+        configureGroup?.Invoke(group);
         group.MapPost("/login", LoginAsync);
         group.MapPost("/mfa-challenge", MfaChallengeAsync);
         group.MapPost("/logout", LogoutAsync);
