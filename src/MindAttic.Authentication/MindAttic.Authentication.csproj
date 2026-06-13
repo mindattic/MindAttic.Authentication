@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <RootNamespace>MindAttic.Authentication</RootNamespace>
     <!-- Maximally-secure, Vault-backed authentication for the MindAttic ecosystem.
          OWASP ASVS L2/L3 · NIST SP 800-63B AAL2. -->
