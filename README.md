@@ -5,13 +5,13 @@ Razor Class Library (NuGet) so MindAttic.Ideas, StreetSamurai, and Tutor all aut
 instead of each rolling its own. Built to **OWASP ASVS L2 (L3 where feasible)** and **NIST SP 800-63B
 AAL2**, under a threat model that assumes a skilled attacker *and a future full database breach*.
 
-> **Status:** v1 core **built, compiling clean, and packed to the local feed** (`1.0.0`) — login →
-> TOTP step-up → enrollment → change-password → logout, with the full hardened engine behind it. Password
-> reset (email) + provisioning CLI + the three app adoptions are the remaining work. This README is the
-> **living spec** (✅ done · 🔨 building · 📋 planned).
+> **Status:** v2 **built, compiling clean, and packed to the local feed** (`2.0.0`) — full auth engine
+> including login → TOTP step-up → enrollment → change-password → logout, password reset (email),
+> all Razor components, Blazor/endpoint wiring, and the complete security-logic core.
+> Provisioning CLI and the three app adoptions (StreetSamurai → Ideas → Tutor) are the remaining work.
 >
-> **Versioning:** major-only — `1.0.0` for all of v1; the next release is `2.0.0`, then `3.0.0` (never
-> `1.1.0`). See [`docs/VERSIONING.md`](docs/VERSIONING.md).
+> **Versioning:** major-only — `2.0.0` is the current release; the next release is `3.0.0` (never
+> `2.1.0`). See [`docs/VERSIONING.md`](docs/VERSIONING.md).
 >
 > **Documentation:** [`docs/`](docs/README.md) — [SECURITY_SPEC](docs/SECURITY_SPEC.md) (design + control
 > mappings) · [API](docs/API.md) (every public type) · [INTEGRATION](docs/INTEGRATION.md) ·
@@ -170,29 +170,22 @@ low-and-slow stuffing under thresholds (anomaly brake + edge WAF required).
 ```
 MindAttic.Authentication/
 ├─ src/MindAttic.Authentication/        (RCL, net10.0, → NuGet)
-│  ├─ Options/   AuthCryptoOptions                         ✅
-│  ├─ Secrets/   IAuthSecrets, ConfigAuthSecrets (fail-closed) ✅
-│  ├─ Crypto/    Phc, IPasswordHasher, Argon2idPasswordHasher  ✅
-│  ├─ Entities/  8 auth entities + enums                   ✅
-│  ├─ Data/      ApplyMindAtticAuthConfiguration (auth schema) ✅
-│  ├─ Services/  lockout ✅ · audit ✅ · policy/HIBP ✅ · TOTP/recovery ✅ · login pipeline ✅ · MFA-enroll ✅ · change-pw ✅ · bootstrap ✅ · password-reset(email) 📋
-│  ├─ Web/       DI ✅ · cookie+MFA-pending schemes ✅ · revalidating auth-state ✅ · UseMindAtticAuthentication+CSP ✅ · endpoints (login/mfa/logout/change-pw) ✅ · startup-filter 📋
+│  ├─ Options/   AuthCryptoOptions                              ✅
+│  ├─ Secrets/   IAuthSecrets, ConfigAuthSecrets (fail-closed)  ✅
+│  ├─ Crypto/    Phc, IPasswordHasher, Argon2idPasswordHasher   ✅
+│  ├─ Entities/  8 auth entities + enums                        ✅
+│  ├─ Data/      ApplyMindAtticAuthConfiguration (auth schema)  ✅
+│  ├─ Services/  lockout ✅ · audit ✅ · policy/HIBP ✅ · TOTP/recovery ✅ · login pipeline ✅ · MFA-enroll ✅ · change-pw ✅ · bootstrap ✅ · password-reset(email) ✅
+│  ├─ Web/       DI ✅ · cookie+MFA-pending schemes ✅ · revalidating auth-state ✅ · UseMindAtticAuthentication+CSP ✅ · endpoints (login/mfa/logout/change-pw) ✅ · startup-filter ✅
 │  └─ Components/ MaLogin ✅ · MaLogout ✅ · MaChangePassword ✅ · MaMfaChallenge ✅ · MaMfaSetup ✅ · MaForgotPassword ✅ · MaResetPassword ✅
-├─ tools/        provisioning CLI (pepper/KEK/keys)        📋
-└─ docs/SECURITY_SPEC.md   (Legion-hardened, red-teamed)   ✅
+├─ tools/        provisioning CLI (pepper/KEK/keys)             📋
+└─ docs/SECURITY_SPEC.md   (Legion-hardened, red-teamed)        ✅
 
-Published: MindAttic.Authentication 1.0.0 → C:\LocalNuGet (consumable as a PackageReference).
+Published: MindAttic.Authentication 2.0.0 → C:\LocalNuGet (consumable as a PackageReference).
 ```
 
-**Done & verified (compile clean):** the full security-logic core + the integration keystone — Argon2id+pepper
-hasher, fail-closed Vault secrets, the 8-entity `auth` model, persistent lockout, audit writer, password
-policy (HIBP + offline + history), TOTP + recovery-code generation, the `LoginAsync`/`ConfirmMfaAsync`
-pipeline, the 1-minute revalidating auth-state provider + cookie stamp/idle validation, and the
-`AddMindAtticAuthentication` DI extension (cookie + MFA-pending schemes, Admin-MFA policy, per-app Data
-Protection isolation, fail-closed options).
-**Next:** minimal-API endpoints (login/logout/mfa-challenge/change-password) + timing floor · race-safe
-Vault bootstrap · MFA enrollment + password-reset services · fail-closed startup filter + CSP nonce ·
-Blazor components · provisioning CLI · signed pack. **Then** adopt into StreetSamurai → Ideas → Tutor + the Ideas Admin UI.
+**Done & verified (compile clean):** full security-logic core, all Razor components, and complete endpoint/middleware wiring — Argon2id+pepper hasher, fail-closed Vault secrets, 8-entity `auth` model, persistent lockout, audit writer, password policy (HIBP + offline + history), TOTP + recovery-code generation, the `LoginAsync`/`ConfirmMfaAsync` pipeline, 1-minute revalidating auth-state provider, `AddMindAtticAuthentication` DI extension, all seven Blazor components, and password-reset (email) service.
+**Remaining:** provisioning CLI (pepper/KEK/key generation). **Then** adopt into StreetSamurai → Ideas → Tutor + the Ideas Admin UI.
 
 ---
 

@@ -10,6 +10,7 @@ Exhaustive docs for the unified, Vault-backed authentication library. Start with
 | [`INTEGRATION.md`](INTEGRATION.md) | Step-by-step host adoption: package reference, `IAuthDataContext`, DI/middleware/endpoints, pages, email, secret provisioning, user migration. |
 | [`CONFIGURATION.md`](CONFIGURATION.md) | Every config key + Vault secret + option, with defaults and an example `appsettings.json`. |
 | [`OPERATIONS.md`](OPERATIONS.md) | Runbook: secret provisioning, bootstrap, pepper/DP-key rotation, disaster recovery, email (Psst), Windows deployment, and the red-team-mandated operational must-dos. |
+| [`ADOPTION_PLAYBOOK.md`](ADOPTION_PLAYBOOK.md) | Legion-decided per-app adoption strategy — role names, claims augmentation, phased adoption order (StreetSamurai → Ideas → Tutor), per-app wiring details. |
 | [`VERSIONING.md`](VERSIONING.md) | The major-only versioning policy (`1.0.0` → `2.0.0` → `3.0.0`) and what a major bump means. |
 
 ## At a glance
