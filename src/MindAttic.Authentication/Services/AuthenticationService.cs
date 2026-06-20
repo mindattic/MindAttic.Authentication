@@ -91,6 +91,7 @@ public sealed class AuthenticationService(
 
         // Success on the password factor.
         await lockout.ResetAsync(ThrottleScope.Account, userName, ct);
+        await lockout.ResetAsync(ThrottleScope.Ip, sourceIp, ct);
         if (needsRehash)
         {
             var rehashed = hasher.Hash(password);
@@ -142,6 +143,7 @@ public sealed class AuthenticationService(
         }
 
         await lockout.ResetAsync(ThrottleScope.Account, user.UserName, ct);
+        await lockout.ResetAsync(ThrottleScope.Ip, sourceIp, ct);
         var sid = await CreateSessionAsync(user, sourceIp, userAgent, now, ct);
         await audit.WriteAsync(new AuthAuditEntry(
             isRecoveryCode ? AuthEventType.RecoveryUsed : AuthEventType.MfaChallenge,

@@ -58,7 +58,7 @@ public static class AuthEndpoints
                 await SignInCookieAsync(http, result, sessionOptions.Value, clock);
                 return Results.Redirect(returnUrl);
             case MaSvc.LoginStatus.MfaRequired:
-                await SignInMfaPendingAsync(http, result.UserId!.Value);
+                await SignInMfaPendingAsync(http, result.UserId!.Value, clock);
                 return Results.Redirect(WithReturn("/mfa", returnUrl));
             default:
                 return Results.Redirect(WithReturn("/login?error=1", returnUrl, '&'));
@@ -177,10 +177,10 @@ public static class AuthEndpoints
         await http.SignInAsync(MaSchemes.Cookie, principal, props);
     }
 
-    private static async Task SignInMfaPendingAsync(HttpContext http, Guid userId)
+    private static async Task SignInMfaPendingAsync(HttpContext http, Guid userId, TimeProvider clock)
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim(MaClaims.UserId, userId.ToString())], MaSchemes.MfaPending));
-        var props = new AuthenticationProperties { IsPersistent = false, ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(5) };
+        var props = new AuthenticationProperties { IsPersistent = false, ExpiresUtc = clock.GetUtcNow().AddMinutes(5) };
         await http.SignInAsync(MaSchemes.MfaPending, principal, props);
     }
 
