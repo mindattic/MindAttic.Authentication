@@ -14,7 +14,7 @@ public static class AuthModel
     public const string DefaultSchema = "auth";
 
     /// <summary>Bumped whenever the auth EF model changes; hosts assert their migration matches.</summary>
-    public const string ModelFingerprint = "auth-v1";
+    public const string ModelFingerprint = "auth-v2";
 
     public static ModelBuilder ApplyMindAtticAuthConfiguration(this ModelBuilder b, string schema = DefaultSchema)
     {
@@ -24,10 +24,13 @@ public static class AuthModel
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.NormalizedUserName).IsUnique();
             e.HasIndex(x => x.NormalizedEmail);
+            e.HasIndex(x => x.NormalizedDisplayName).IsUnique().HasFilter("[NormalizedDisplayName] IS NOT NULL");
             e.Property(x => x.UserName).HasMaxLength(256).IsRequired();
             e.Property(x => x.NormalizedUserName).HasMaxLength(256).IsRequired();
             e.Property(x => x.Email).HasMaxLength(256);
             e.Property(x => x.NormalizedEmail).HasMaxLength(256);
+            e.Property(x => x.DisplayName).HasMaxLength(64);
+            e.Property(x => x.NormalizedDisplayName).HasMaxLength(64);
             e.Property(x => x.PasswordHash).HasMaxLength(512).IsRequired();
             e.Property(x => x.PasswordPepperKeyId).HasMaxLength(16);
             e.Property(x => x.LegacyHashScheme).HasMaxLength(16);

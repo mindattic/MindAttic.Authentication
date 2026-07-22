@@ -34,6 +34,9 @@ public sealed class AuthUser
     public string? NormalizedEmail { get; set; }
     public bool EmailVerified { get; set; }
 
+    public string? DisplayName { get; set; }
+    public string? NormalizedDisplayName { get; set; }
+
     public string PasswordHash { get; set; } = "";
     public string? PasswordPepperKeyId { get; set; }   // e.g. "v1"; null for pre-pepper legacy rows
     public string? LegacyHashScheme { get; set; }      // "bcrypt" | "sha256" until first rehash-on-login

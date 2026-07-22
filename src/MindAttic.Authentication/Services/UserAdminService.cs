@@ -7,7 +7,7 @@ namespace MindAttic.Authentication.Services;
 
 /// <summary>A user as shown in an admin list (never exposes the password hash).</summary>
 public sealed record AuthUserSummary(
-    Guid Id, string UserName, string? Email, string Role, bool IsActive, bool MfaEnabled,
+    Guid Id, string UserName, string? Email, string? DisplayName, string Role, bool IsActive, bool MfaEnabled,
     bool MustChangePassword, DateTime? LastLoginUtc, DateTime CreatedUtc);
 
 public sealed record CreateUserResult(bool Ok, Guid? UserId, string? Error);
@@ -29,10 +29,10 @@ public interface IUserAdminService
     Task<IReadOnlyList<AuthUserSummary>> ListAsync(CancellationToken ct = default);
     Task<AuthUserSummary?> GetAsync(Guid id, CancellationToken ct = default);
     Task<int> CountAsync(CancellationToken ct = default);
-    Task<CreateUserResult> CreateAsync(string userName, string? email, string role, string password, bool mustChangePassword = true, CancellationToken ct = default);
+    Task<CreateUserResult> CreateAsync(string userName, string? email, string role, string password, bool mustChangePassword = true, string? displayName = null, CancellationToken ct = default);
     Task<AdminActionResult> SetRoleAsync(Guid id, string role, CancellationToken ct = default);
     Task<AdminActionResult> SetActiveAsync(Guid id, bool active, CancellationToken ct = default);
-    Task<AdminActionResult> UpdateProfileAsync(Guid id, string? email, CancellationToken ct = default);
+    Task<AdminActionResult> UpdateProfileAsync(Guid id, string? email, string? displayName = null, CancellationToken ct = default);
     /// <summary>Operator reset (e.g. lost MFA / forgotten password). Rotates the stamp; forces change by default.</summary>
     Task<AdminActionResult> ResetPasswordAsync(Guid id, string newPassword, bool requireChange = true, CancellationToken ct = default);
 }
@@ -49,7 +49,7 @@ public sealed class UserAdminService(
 
     public Task<int> CountAsync(CancellationToken ct = default) => db.AuthUsers.CountAsync(ct);
 
-    public async Task<CreateUserResult> CreateAsync(string userName, string? email, string role, string password, bool mustChangePassword = true, CancellationToken ct = default)
+    public async Task<CreateUserResult> CreateAsync(string userName, string? email, string role, string password, bool mustChangePassword = true, string? displayName = null, CancellationToken ct = default)
     {
         var normalized = IUserStore.Normalize(userName);
         if (string.IsNullOrWhiteSpace(normalized)) return new(false, null, "Username is required.");
@@ -65,6 +65,7 @@ public sealed class UserAdminService(
         {
             UserName = userName, NormalizedUserName = normalized,
             Email = email, NormalizedEmail = NormalizeEmail(email), EmailVerified = false,
+            DisplayName = displayName, NormalizedDisplayName = NormalizeDisplayName(displayName),
             PasswordHash = hash.Phc, PasswordPepperKeyId = hash.PepperKeyId, PasswordUpdatedUtc = now,
             Role = role, MustChangePassword = mustChangePassword, IsActive = true, CreatedUtc = now,
         };
@@ -98,12 +99,14 @@ public sealed class UserAdminService(
         return AdminActionResult.Success;
     }
 
-    public async Task<AdminActionResult> UpdateProfileAsync(Guid id, string? email, CancellationToken ct = default)
+    public async Task<AdminActionResult> UpdateProfileAsync(Guid id, string? email, string? displayName = null, CancellationToken ct = default)
     {
         var user = await db.AuthUsers.FirstOrDefaultAsync(u => u.Id == id, ct);
         if (user is null) return AdminActionResult.Fail("User not found.");
         user.Email = email;
         user.NormalizedEmail = NormalizeEmail(email);
+        user.DisplayName = displayName;
+        user.NormalizedDisplayName = NormalizeDisplayName(displayName);
         await db.SaveChangesAsync(ct);
         return AdminActionResult.Success;
     }
@@ -144,6 +147,9 @@ public sealed class UserAdminService(
     private static string? NormalizeEmail(string? email) =>
         string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToUpperInvariant();
 
+    private static string? NormalizeDisplayName(string? displayName) =>
+        string.IsNullOrWhiteSpace(displayName) ? null : displayName.Normalize(System.Text.NormalizationForm.FormKC).Trim().ToUpperInvariant();
+
     private static readonly System.Linq.Expressions.Expression<Func<AuthUser, AuthUserSummary>> Project =
-        u => new AuthUserSummary(u.Id, u.UserName, u.Email, u.Role, u.IsActive, u.MfaEnabled, u.MustChangePassword, u.LastLoginUtc, u.CreatedUtc);
+        u => new AuthUserSummary(u.Id, u.UserName, u.Email, u.DisplayName, u.Role, u.IsActive, u.MfaEnabled, u.MustChangePassword, u.LastLoginUtc, u.CreatedUtc);
 }

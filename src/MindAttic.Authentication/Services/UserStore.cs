@@ -24,10 +24,11 @@ public interface IUserStore
 /// <summary>EF-backed user lookup/update over the app's <see cref="IAuthDataContext"/>.</summary>
 public sealed class UserStore(IAuthDataContext db) : IUserStore
 {
-    public Task<AuthUser?> FindByUserNameAsync(string userName, CancellationToken ct = default)
+    public async Task<AuthUser?> FindByUserNameAsync(string userName, CancellationToken ct = default)
     {
         var normalized = IUserStore.Normalize(userName);
-        return db.AuthUsers.FirstOrDefaultAsync(u => u.NormalizedUserName == normalized, ct);
+        return await db.AuthUsers.FirstOrDefaultAsync(u => u.NormalizedUserName == normalized, ct)
+            ?? await db.AuthUsers.FirstOrDefaultAsync(u => u.NormalizedDisplayName == normalized, ct);
     }
 
     public Task<AuthUser?> FindByIdAsync(Guid id, CancellationToken ct = default) =>
