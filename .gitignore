@@ -16,3 +16,4 @@ artifacts/
 *.log
 Thumbs.db
 .DS_Store
+.claude/checkpoint.md
