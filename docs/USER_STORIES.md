@@ -54,7 +54,7 @@ Dependency-ordered toward the headline goal (one engine adopted by all three app
 2. ⬜ **AUTH-US-G5** — Add the fail-closed `IStartupFilter` integration test asserting middleware order. (hardens G2)
 3. ⬜ **AUTH-US-F3** — Provisioning CLI emitting CSPRNG pepper/KEK/reset-key (see [RFC 0001](rfc/0001-provisioning-cli.md)). (depends on B1/B2)
 4. ⬜ **AUTH-US-F4** — Signed, deterministic NuGet pack with committed `packages.lock.json`.
-5. ⬜ **AUTH-US-G6** — Adopt into **StreetSamurai**, then **Ideas** (+ Ideas Admin Users UI), then **Tutor**; each subscriber references the version and builds ([AUTH-LAW-7](BIBLE.md#AUTH-LAW-7)).
+5. ⬜ **AUTH-US-G6** — Adopt into **Prose**, then **Ideas** (+ Ideas Admin Users UI), then **Tutor**; each subscriber references the version and builds ([AUTH-LAW-7](BIBLE.md#AUTH-LAW-7)).
 6. ⬜ **AUTH-US-D4** — WebAuthn/FIDO2 (v2, additive) to close the accepted AITM residual.
 
 ### Audit log

@@ -69,7 +69,7 @@ Invalid values **fail startup** (`ValidateOrThrow`).
 
 | Member | Default | Notes |
 |---|---|---|
-| `AppName` | `"App"` | Per-app Data-Protection isolation. Set per app (`"Ideas"`, `"StreetSamurai"`, `"Tutor"`). |
+| `AppName` | `"App"` | Per-app Data-Protection isolation. Set per app (`"Ideas"`, `"Prose"`, `"Tutor"`). |
 | `IsProduction` | `false` | `true` ⇒ requires `ConfigureDataProtection` (fail-closed). |
 | `ConfigureDataProtection` | — | PROD: persist + protect the key ring (Azure Blob + Key Vault). |
 | `DevKeyRingPath` | `%APPDATA%\MindAttic\DataProtection\{AppName}` | Dev key ring location. |

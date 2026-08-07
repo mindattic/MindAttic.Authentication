@@ -28,7 +28,7 @@ version and build.
 |------------------|-----------------------------------------------------------------------------------------|
 | **Ideas**        | `MindAttic.Ideas/src/MindAttic.Ideas.Web/MindAttic.Ideas.Web.csproj`                    |
 |                  | `MindAttic.Ideas/src/MindAttic.Ideas.Core/MindAttic.Ideas.Core.csproj`                  |
-| **StreetSamurai**| `StreetSamurai/v3/StreetSamurai.Core/StreetSamurai.Core.csproj`                         |
+| **Prose**| `Prose/v3/Prose.Core/Prose.Core.csproj`                         |
 | **Tutor**        | `Tutor/Tutor.Core/Tutor.Core.csproj`                                                    |
 
 All subscriber repos live under `D:\Projects\MindAttic\`.

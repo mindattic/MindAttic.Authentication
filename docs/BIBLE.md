@@ -14,7 +14,7 @@ updated: 2026-06-07
 > The exhaustive design rationale lives in [SECURITY_SPEC.md](SECURITY_SPEC.md) (Legion-hardened, red-teamed); this bible is the navigable canon over it.
 
 ## 1. The one sentence {#AUTH-§1}
-MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication engine shipped as a single Razor Class Library (NuGet) so MindAttic.Ideas, StreetSamurai, and Tutor all authenticate **identically** — built to OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker **and a future full database breach**.
+MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication engine shipped as a single Razor Class Library (NuGet) so MindAttic.Ideas, Prose, and Tutor all authenticate **identically** — built to OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker **and a future full database breach**.
 
 ## 2. The product promise {#AUTH-§2}
 - **One hardened engine, not three.** Replaces three divergent (one critically broken) per-app auth implementations with a single library that is correct in one place — see [§3](#AUTH-§3) for what it deliberately is not.
@@ -37,7 +37,7 @@ MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication 
 ## 4. Architecture canon {#AUTH-§4}
 
 ```
-                       consuming app (Ideas / StreetSamurai / Tutor)
+                       consuming app (Ideas / Prose / Tutor)
                                    |  PackageReference (NuGet)
    +-------------------------------v--------------------------------------+
    |                    MindAttic.Authentication (RCL, net10.0)           |
@@ -112,7 +112,7 @@ All `SignInAsync`/`SignOutAsync` happen in `[ValidateAntiforgery]` minimal-API e
 `SetApplicationName("MindAttic.Auth:{AppName}")` per app, so a cookie minted for one app cannot authenticate to another. The `auth` schema is isolated and has no FKs into app tables. No cross-app SSO in v1. *(Verified by per-app Data Protection isolation in the DI extension; build.)*
 
 ### {#AUTH-LAW-7} AUTH-LAW-7 — A release is not done until all subscribers reference it and build
-This library ships as a NuGet PackageReference to Ideas (×2 csproj), StreetSamurai, and Tutor. Every release bumps `<Version>` (whole-number), packs to the local feed, updates all subscriber csproj references, and rebuilds each subscriber. Missing any reference point is an incomplete release. (See [CLAUDE.md](../CLAUDE.md) for the exhaustive reference-point table.) *(Verified operationally; no in-repo test.)*
+This library ships as a NuGet PackageReference to Ideas (×2 csproj), Prose, and Tutor. Every release bumps `<Version>` (whole-number), packs to the local feed, updates all subscriber csproj references, and rebuilds each subscriber. Missing any reference point is an incomplete release. (See [CLAUDE.md](../CLAUDE.md) for the exhaustive reference-point table.) *(Verified operationally; no in-repo test.)*
 
 ## 6. Verified state {#AUTH-§6}
 Evidence captured 2026-06-07 on this working tree:
@@ -120,7 +120,7 @@ Evidence captured 2026-06-07 on this working tree:
 - **Tests:** `dotnet test` → **Passed! Failed: 0, Passed: 184, Skipped: 0, Total: 184** (NUnit 4, net10.0).
 - **Proven working (✅, test-cited):** Argon2id+pepper hasher + PHC; fail-closed Vault secrets (`IAuthSecrets`); the 8-entity `auth` model; persistent per-account/per-IP lockout backoff; audit writer (sanitized, hashed keys); password policy (HIBP fail-open + offline + history); TOTP generate/validate + replay guard; password-reset request/consume; account-admin create/disable; URL-safety (open-redirect) guard; timing floor; account-key NFKC normalization; crypto options floor validation.
 - **🟡 partial / built-but-unit-test-thin:** the `LoginAsync`/`ConfirmMfaAsync` end-to-end pipeline, MFA enrollment service, change-password service, bootstrap seeding, the Web DI/middleware/endpoints, the revalidating auth-state provider, and the Razor components are **compiled and present** but not all directly unit-tested in isolation — see [USER_STORIES](USER_STORIES.md).
-- **⬜ planned:** email-delivered password reset wiring, the provisioning CLI (`tools/`), signed deterministic pack, and the three app adoptions (StreetSamurai → Ideas → Tutor).
+- **⬜ planned:** email-delivered password reset wiring, the provisioning CLI (`tools/`), signed deterministic pack, and the three app adoptions (Prose → Ideas → Tutor).
 
 ## 7. Active frontier {#AUTH-§7}
 - Design notes: [docs/rfc/](rfc/) — see [RFC 0001](rfc/0001-provisioning-cli.md) (provisioning CLI for CSPRNG secrets).

@@ -4,7 +4,7 @@
 > generated: 2026-06-07 by tools/codex.ps1 digest - do not hand-edit
 
 ## The one sentence (AUTH-§1)
-MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication engine shipped as a single Razor Class Library (NuGet) so MindAttic.Ideas, StreetSamurai, and Tutor all authenticate **identically** — built to OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker **and a future full database breach**.
+MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication engine shipped as a single Razor Class Library (NuGet) so MindAttic.Ideas, Prose, and Tutor all authenticate **identically** — built to OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker **and a future full database breach**.
 
 ## What it is NOT (AUTH-§3)
 - **NOT a per-app rolled scheme.** Apps do not implement password hashing, lockout, MFA, or sessions; they adopt this library (org [HOUSE-LAW-7](../../MindAttic.HouseRules.md#HOUSE-LAW-7)).

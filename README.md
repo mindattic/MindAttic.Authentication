@@ -1,14 +1,14 @@
 # MindAttic.Authentication
 
 Maximally-secure, **Vault-backed** authentication for the MindAttic ecosystem — shipped as a single
-Razor Class Library (NuGet) so MindAttic.Ideas, StreetSamurai, and Tutor all authenticate **identically**
+Razor Class Library (NuGet) so MindAttic.Ideas, Prose, and Tutor all authenticate **identically**
 instead of each rolling its own. Built to **OWASP ASVS L2 (L3 where feasible)** and **NIST SP 800-63B
 AAL2**, under a threat model that assumes a skilled attacker *and a future full database breach*.
 
 > **Status:** v2 **built, compiling clean, and packed to the local feed** (`2.0.0`) — full auth engine
 > including login → TOTP step-up → enrollment → change-password → logout, password reset (email),
 > all Razor components, Blazor/endpoint wiring, and the complete security-logic core.
-> Provisioning CLI and the three app adoptions (StreetSamurai → Ideas → Tutor) are the remaining work.
+> Provisioning CLI and the three app adoptions (Prose → Ideas → Tutor) are the remaining work.
 >
 > **Versioning:** major-only — `2.0.0` is the current release; the next release is `3.0.0` (never
 > `2.1.0`). See [`docs/VERSIONING.md`](docs/VERSIONING.md).
@@ -30,7 +30,7 @@ A security audit of the three apps found divergent, partly **critical** auth:
 | App | Verdict | Worst issues |
 |---|---|---|
 | **Tutor** | 🔴 critically broken | plain **SHA-256, no salt**; hardcoded `aaa` admin; no sessions / lockout / MFA |
-| **StreetSamurai** | 🟡 soft | BCrypt ✓ but hardcoded default password, a **dev-auto-login** middleware that can fire in prod, volatile in-memory lockout, 30-day sliding sessions, no MFA |
+| **Prose** | 🟡 soft | BCrypt ✓ but hardcoded default password, a **dev-auto-login** middleware that can fire in prod, volatile in-memory lockout, 30-day sliding sessions, no MFA |
 | **Ideas** | 🟡 minimal | BCrypt ✓ but SecurityStamp revalidation unwired, no lockout/MFA yet |
 
 Common gaps: **no MFA, no audit log, no breached-password check, secrets not Vault-backed, three
@@ -185,7 +185,7 @@ Published: MindAttic.Authentication 2.0.0 → C:\LocalNuGet (consumable as a Pac
 ```
 
 **Done & verified (compile clean):** full security-logic core, all Razor components, and complete endpoint/middleware wiring — Argon2id+pepper hasher, fail-closed Vault secrets, 8-entity `auth` model, persistent lockout, audit writer, password policy (HIBP + offline + history), TOTP + recovery-code generation, the `LoginAsync`/`ConfirmMfaAsync` pipeline, 1-minute revalidating auth-state provider, `AddMindAtticAuthentication` DI extension, all seven Blazor components, and password-reset (email) service.
-**Remaining:** provisioning CLI (pepper/KEK/key generation). **Then** adopt into StreetSamurai → Ideas → Tutor + the Ideas Admin UI.
+**Remaining:** provisioning CLI (pepper/KEK/key generation). **Then** adopt into Prose → Ideas → Tutor + the Ideas Admin UI.
 
 ---
 

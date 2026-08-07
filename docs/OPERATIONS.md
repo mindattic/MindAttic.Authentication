@@ -62,7 +62,7 @@ Auth emails go through `IAuthEmailSender`. On Windows hosts, register a `MindAtt
 The library ships a logging fallback for dev. Reset is enumeration-safe ("if an account exists, we've
 emailed a link") and the link base comes from a configured public base URL, never `Request.Host`.
 
-## 6. Deployment (Windows App Service, StreetSamurai-style)
+## 6. Deployment (Windows App Service, Prose-style)
 
 GitHub Actions on `windows-latest`, **build → migrate → deploy**:
 - **build:** `dotnet publish`; restore the private packages (Vault, Authentication, Psst, Legion) from the

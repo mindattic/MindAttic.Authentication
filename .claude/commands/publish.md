@@ -1,5 +1,5 @@
 ---
-description: Release MindAttic.Authentication and propagate the new version to all subscribers (Ideas, StreetSamurai, Tutor)
+description: Release MindAttic.Authentication and propagate the new version to all subscribers (Ideas, Prose, Tutor)
 argument-hint: "[version]  (optional; defaults to next whole-number major)"
 allowed-tools: Read, Edit, Grep, Glob, Bash(dotnet pack:*), Bash(dotnet build:*), Bash(dotnet restore:*), Bash(dotnet nuget locals:*)
 ---
@@ -33,7 +33,7 @@ subscriber explicitly. See this repo's `CLAUDE.md` for the canonical rule.
    known minimum, not a cap):
    - `D:\Projects\MindAttic\MindAttic.Ideas\src\MindAttic.Ideas.Web\MindAttic.Ideas.Web.csproj`
    - `D:\Projects\MindAttic\MindAttic.Ideas\src\MindAttic.Ideas.Core\MindAttic.Ideas.Core.csproj`
-   - `D:\Projects\MindAttic\StreetSamurai\v3\StreetSamurai.Core\StreetSamurai.Core.csproj`
+   - `D:\Projects\MindAttic\Prose\v3\Prose.Core\Prose.Core.csproj`
    - `D:\Projects\MindAttic\Tutor\Tutor.Core\Tutor.Core.csproj`
 
    Before editing, run a grep for `MindAttic.Authentication` across all subscriber repos to
