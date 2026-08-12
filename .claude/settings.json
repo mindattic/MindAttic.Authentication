@@ -1,13 +1,13 @@
 {
-  "statusLine": { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\.claude\\statusline.ps1\"" },
+  "statusLine": { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR\\.claude\\statusline.ps1\"" },
   "hooks": {
     "SessionStart": [
-      { "matcher": "clear", "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\.claude\\hooks\\restore-handoff.ps1\"" } ] },
+      { "matcher": "clear", "hooks": [ { "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR\\.claude\\hooks\\restore-handoff.ps1\"" } ] },
       {
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\.claude\\hooks\\inject-digest.ps1\""
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR\\.claude\\hooks\\inject-digest.ps1\""
           }
         ]
       }
