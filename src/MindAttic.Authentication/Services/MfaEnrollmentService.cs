@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using MindAttic.Authentication.Crypto;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Entities;
 using MindAttic.Authentication.Options;
-using MindAttic.Cryptography.Crypto;
-using MindAttic.Cryptography.Totp;
 
 namespace MindAttic.Authentication.Services;
 

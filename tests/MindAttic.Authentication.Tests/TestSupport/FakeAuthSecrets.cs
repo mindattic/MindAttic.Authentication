@@ -1,16 +1,16 @@
 using System.Security.Cryptography;
 using System.Text;
-using MindAttic.Cryptography.Secrets;
+using MindAttic.Authentication.Secrets;
 
 namespace MindAttic.Authentication.Tests.TestSupport;
 
 /// <summary>
-/// Deterministic, fail-closed test double for <see cref="ISecretResolver"/>. Every secret name resolves to a
+/// Deterministic, fail-closed test double for <see cref="IAuthSecrets"/>. Every secret name resolves to a
 /// stable 32-byte value (so the same pepper id yields the same bytes across hasher instances — required to
 /// verify a hash produced elsewhere). Names added to <see cref="Missing"/> throw, exercising fail-closed
 /// paths (a missing pepper must never coerce to empty).
 /// </summary>
-public sealed class FakeAuthSecrets : ISecretResolver
+public sealed class FakeAuthSecrets : IAuthSecrets
 {
     private readonly Dictionary<string, string> _cache = new(StringComparer.Ordinal);
 

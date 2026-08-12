@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Entities;
-using MindAttic.Cryptography.Internal;
+using MindAttic.Authentication.Internal;
 
 namespace MindAttic.Authentication.Services;
 
@@ -47,8 +47,8 @@ public sealed class AuthAuditWriter(IServiceScopeFactory scopeFactory, TimeProvi
                 ReasonCode = e.Reason,
                 AccountKeyHash = string.IsNullOrWhiteSpace(e.AccountKeyRaw)
                     ? null
-                    : KeyCanonicalizer.Hash(KeyCanonicalizer.NormalizeAccount(e.AccountKeyRaw!)),
-                SourceIp = KeyCanonicalizer.CanonicalizeIp(e.SourceIpRaw),
+                    : AuthKeys.Hash(AuthKeys.NormalizeAccount(e.AccountKeyRaw!)),
+                SourceIp = AuthKeys.CanonicalizeIp(e.SourceIpRaw),
                 UserAgent = Sanitize(e.UserAgent),
                 CaptchaPresented = e.CaptchaPresented,
             });

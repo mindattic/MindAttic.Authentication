@@ -2,12 +2,11 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using MindAttic.Authentication.Crypto;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Entities;
+using MindAttic.Authentication.Internal;
 using MindAttic.Authentication.Options;
-using MindAttic.Cryptography.Crypto;
-using MindAttic.Cryptography.Internal;
-using MindAttic.Cryptography.Totp;
 
 namespace MindAttic.Authentication.Services;
 
@@ -190,7 +189,7 @@ public sealed class AuthenticationService(
             CreatedUtc = now,
             LastSeenUtc = now,
             AbsoluteExpiryUtc = now + _session.AbsoluteTimeout,
-            IpHash = KeyCanonicalizer.HashHex(KeyCanonicalizer.CanonicalizeIp(sourceIp)),
+            IpHash = AuthKeys.HashHex(AuthKeys.CanonicalizeIp(sourceIp)),
             UserAgent = Trunc(userAgent, 512),
         };
         db.AuthSessions.Add(session);

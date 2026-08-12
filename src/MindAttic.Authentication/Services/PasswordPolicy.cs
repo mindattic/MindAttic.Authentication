@@ -3,9 +3,9 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MindAttic.Authentication.Crypto;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Options;
-using MindAttic.Cryptography.Crypto;
 
 namespace MindAttic.Authentication.Services;
 

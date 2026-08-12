@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
+using MindAttic.Authentication.Crypto;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Entities;
-using MindAttic.Cryptography.Crypto;
-using MindAttic.Cryptography.Secrets;
+using MindAttic.Authentication.Secrets;
 
 namespace MindAttic.Authentication.Services;
 
@@ -17,7 +17,7 @@ public sealed class AuthBootstrapper(
     IAuthDataContext db,
     IUserStore users,
     IPasswordHasher hasher,
-    ISecretResolver secrets,
+    IAuthSecrets secrets,
     TimeProvider clock,
     ILogger<AuthBootstrapper> logger)
 {

@@ -1,9 +1,8 @@
+using MindAttic.Authentication.Crypto;
 using MindAttic.Authentication.Entities;
 using MindAttic.Authentication.Options;
 using MindAttic.Authentication.Services;
 using MindAttic.Authentication.Tests.TestSupport;
-using MindAttic.Cryptography.Crypto;
-using MindAttic.Cryptography.Tokens;
 
 namespace MindAttic.Authentication.Tests.Services;
 
@@ -38,7 +37,7 @@ public sealed class PasswordResetServiceTests
             TokenTtlMinutes = 15, MaxEmailsPerHour = 3,
         };
         var svc = new PasswordResetService(
-            new UserStore(db), db, hasher, new FakePasswordPolicy(), new FakeAuthSecrets(), new HmacSha256TokenHasher(),
+            new UserStore(db), db, hasher, new FakePasswordPolicy(), new FakeAuthSecrets(),
             email, audit, Build.Opt(opts), clock);
         return new Harness { Db = db, Svc = svc, Email = email, Audit = audit, Hasher = hasher, Clock = clock };
     }
