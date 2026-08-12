@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
-using MindAttic.Authentication.Crypto;
-using MindAttic.Authentication.Options;
+using MindAttic.Cryptography.Crypto;
+using MindAttic.Cryptography.Options;
 
 namespace MindAttic.Authentication.Tests.TestSupport;
 
@@ -9,13 +9,13 @@ public static class Build
 {
     /// <summary>
     /// Crypto options at the OWASP floor (m=19456, t=2, p=1) — the cheapest configuration that still passes
-    /// <see cref="AuthCryptoOptions.ValidateOrThrow"/> — to keep Argon2-heavy tests fast.
+    /// <see cref="Argon2Options.ValidateOrThrow"/> — to keep Argon2-heavy tests fast.
     /// </summary>
-    public static AuthCryptoOptions FastCrypto(string pepperId = "v1") => new()
+    public static Argon2Options FastCrypto(string pepperId = "v1") => new()
     {
-        MemoryKiB = AuthCryptoOptions.FloorMemoryKiB,
-        Iterations = AuthCryptoOptions.FloorIterations,
-        Parallelism = AuthCryptoOptions.FloorParallelism,
+        MemoryKiB = Argon2Options.FloorMemoryKiB,
+        Iterations = Argon2Options.FloorIterations,
+        Parallelism = Argon2Options.FloorParallelism,
         SaltBytes = 16,
         HashBytes = 32,
         MinPasswordChars = 12,
@@ -24,7 +24,7 @@ public static class Build
         MaxConcurrentHashes = 2,
     };
 
-    public static Argon2idPasswordHasher Hasher(AuthCryptoOptions? options = null, FakeAuthSecrets? secrets = null) =>
+    public static Argon2idPasswordHasher Hasher(Argon2Options? options = null, FakeAuthSecrets? secrets = null) =>
         new(secrets ?? new FakeAuthSecrets(), Microsoft.Extensions.Options.Options.Create(options ?? FastCrypto()));
 
     public static IOptions<T> Opt<T>(T value) where T : class => Microsoft.Extensions.Options.Options.Create(value);

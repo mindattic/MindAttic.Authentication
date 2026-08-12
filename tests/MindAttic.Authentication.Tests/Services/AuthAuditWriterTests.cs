@@ -2,9 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Entities;
-using MindAttic.Authentication.Internal;
 using MindAttic.Authentication.Services;
 using MindAttic.Authentication.Tests.TestSupport;
+using MindAttic.Cryptography.Internal;
 
 namespace MindAttic.Authentication.Tests.Services;
 
@@ -55,7 +55,7 @@ public sealed class AuthAuditWriterTests
         Assert.That(row.AccountKeyHash, Is.Not.Null);
         Assert.That(row.AccountKeyHash, Has.Length.EqualTo(32));
         // The stored hash equals the hash of the NORMALIZED key (so equivalent identities collapse).
-        Assert.That(row.AccountKeyHash, Is.EqualTo(AuthKeys.Hash(AuthKeys.NormalizeAccount("Alice@Example.com"))));
+        Assert.That(row.AccountKeyHash, Is.EqualTo(KeyCanonicalizer.Hash(KeyCanonicalizer.NormalizeAccount("Alice@Example.com"))));
     }
 
     [Test]

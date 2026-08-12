@@ -1,6 +1,6 @@
-using MindAttic.Authentication.Crypto;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Entities;
+using MindAttic.Cryptography.Crypto;
 
 namespace MindAttic.Authentication.Services;
 

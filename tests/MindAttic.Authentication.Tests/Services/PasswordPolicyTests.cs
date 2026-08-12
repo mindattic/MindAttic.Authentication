@@ -1,11 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
-using MindAttic.Authentication.Crypto;
 using MindAttic.Authentication.Entities;
 using MindAttic.Authentication.Options;
 using MindAttic.Authentication.Services;
 using MindAttic.Authentication.Tests.TestSupport;
+using MindAttic.Cryptography.Crypto;
 
 namespace MindAttic.Authentication.Tests.Services;
 

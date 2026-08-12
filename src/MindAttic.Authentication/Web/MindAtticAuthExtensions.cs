@@ -8,11 +8,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
-using MindAttic.Authentication.Crypto;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Options;
-using MindAttic.Authentication.Secrets;
 using MindAttic.Authentication.Services;
+using MindAttic.Cryptography.Crypto;
+using MindAttic.Cryptography.Options;
+using MindAttic.Cryptography.Secrets;
+using MindAttic.Cryptography.Tokens;
+using MindAttic.Cryptography.Totp;
 
 namespace MindAttic.Authentication.Web;
 
@@ -50,9 +53,12 @@ public static class MindAtticAuthExtensions
         services.AddScoped<IAuthDataContext>(sp => sp.GetRequiredService<TContext>());
 
         // Options (non-secret) — floor-validated at startup, fail-closed.
-        services.AddOptions<AuthCryptoOptions>().Bind(config.GetSection("MindAttic:Auth:Crypto"))
-            .Validate(c => { c.ValidateOrThrow(); return true; }, "Invalid AuthCryptoOptions").ValidateOnStart();
+        services.AddOptions<Argon2Options>().Bind(config.GetSection("MindAttic:Auth:Crypto"))
+            .Validate(c => { c.ValidateOrThrow(); return true; }, "Invalid Argon2Options").ValidateOnStart();
         services.AddOptions<AuthPolicyOptions>().Bind(config.GetSection("MindAttic:Auth:Policy"));
+        // TotpOptions (crypto params) and MfaOptions (app enrollment policy) both bind from the same
+        // section — IOptions binding ignores keys a type doesn't declare.
+        services.AddOptions<TotpOptions>().Bind(config.GetSection("MindAttic:Auth:Mfa"));
         services.AddOptions<MfaOptions>().Bind(config.GetSection("MindAttic:Auth:Mfa"));
         services.AddOptions<AuthSessionOptions>().Bind(config.GetSection("MindAttic:Auth:Session"));
         services.AddOptions<AuthResetOptions>().Bind(config.GetSection("MindAttic:Auth:Reset"));
@@ -64,9 +70,10 @@ public static class MindAtticAuthExtensions
         services.TryAddSingleton(TimeProvider.System);
 
         // Crypto + secrets (fail-closed; hasher precomputes a decoy at construction).
-        services.TryAddSingleton<IAuthSecrets, ConfigAuthSecrets>();
+        services.TryAddSingleton<ISecretResolver, ConfigSecretResolver>();
         services.TryAddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
         services.TryAddSingleton<ITotpService, TotpService>();
+        services.TryAddSingleton<IKeyedTokenHasher, HmacSha256TokenHasher>();
         services.TryAddSingleton<IAuthAuditWriter, AuthAuditWriter>();
         // Dev/fallback email sender; a Windows host overrides this with a MindAttic.Psst adapter.
         services.TryAddSingleton<IAuthEmailSender, LoggingAuthEmailSender>();

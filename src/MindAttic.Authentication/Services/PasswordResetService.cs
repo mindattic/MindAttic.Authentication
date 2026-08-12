@@ -1,12 +1,13 @@
-using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using MindAttic.Authentication.Crypto;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Entities;
 using MindAttic.Authentication.Options;
-using MindAttic.Authentication.Secrets;
+using MindAttic.Cryptography.Crypto;
+using MindAttic.Cryptography.Internal;
+using MindAttic.Cryptography.Secrets;
+using MindAttic.Cryptography.Tokens;
 
 namespace MindAttic.Authentication.Services;
 
@@ -30,7 +31,8 @@ public sealed class PasswordResetService(
     IAuthDataContext db,
     IPasswordHasher hasher,
     IPasswordPolicy policy,
-    IAuthSecrets secrets,
+    ISecretResolver secrets,
+    IKeyedTokenHasher tokenHasher,
     IAuthEmailSender email,
     IAuthAuditWriter audit,
     IOptions<AuthResetOptions> resetOptions,
@@ -55,14 +57,14 @@ public sealed class PasswordResetService(
         var recent = await db.AuthPasswordResetTokens.CountAsync(t => t.UserId == user.Id && t.CreatedUtc >= since, ct);
         if (recent >= _o.MaxEmailsPerHour) return;
 
-        var token = Base64Url(RandomNumberGenerator.GetBytes(32));   // 256-bit
+        var token = SecureToken.GenerateBase64Url(32);   // 256-bit
         db.AuthPasswordResetTokens.Add(new AuthPasswordResetToken
         {
             UserId = user.Id,
             TokenHash = HashToken(token),
             CreatedUtc = now,
             ExpiresUtc = now.AddMinutes(_o.TokenTtlMinutes),
-            RequestIp = Internal.AuthKeys.CanonicalizeIp(sourceIp),
+            RequestIp = KeyCanonicalizer.CanonicalizeIp(sourceIp),
             RequestUserAgent = Trunc(userAgent, 512),
         });
         await db.SaveChangesAsync(ct);
@@ -119,19 +121,7 @@ public sealed class PasswordResetService(
         return await db.AuthUsers.FirstOrDefaultAsync(u => u.NormalizedEmail == normalized, ct);
     }
 
-    private string HashToken(string token)
-    {
-        var key = secrets.GetRequiredBytes("reset-token-key");
-        try
-        {
-            using var hmac = new HMACSHA256(key);
-            return Convert.ToHexStringLower(hmac.ComputeHash(Encoding.UTF8.GetBytes(token)));
-        }
-        finally { CryptographicOperations.ZeroMemory(key); }
-    }
+    private string HashToken(string token) => tokenHasher.Hash(token, secrets.GetRequiredBytes("reset-token-key"));
 
     private static string Trunc(string? s, int max) => string.IsNullOrEmpty(s) ? "" : (s.Length <= max ? s : s[..max]);
-
-    private static string Base64Url(byte[] bytes) =>
-        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

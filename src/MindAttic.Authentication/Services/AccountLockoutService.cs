@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Entities;
-using MindAttic.Authentication.Internal;
+using MindAttic.Cryptography.Internal;
 
 namespace MindAttic.Authentication.Services;
 
@@ -86,5 +86,5 @@ public sealed class AccountLockoutService(IAuthDataContext db, TimeProvider cloc
     }
 
     private static byte[] KeyHash(ThrottleScope scope, string rawKey) =>
-        AuthKeys.Hash(scope == ThrottleScope.Ip ? AuthKeys.CanonicalizeIp(rawKey) : AuthKeys.NormalizeAccount(rawKey));
+        KeyCanonicalizer.Hash(scope == ThrottleScope.Ip ? KeyCanonicalizer.CanonicalizeIp(rawKey) : KeyCanonicalizer.NormalizeAccount(rawKey));
 }
