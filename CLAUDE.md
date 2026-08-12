@@ -26,12 +26,20 @@ version and build.
 
 | Subscriber       | Project files referencing `MindAttic.Authentication`                                   |
 |------------------|-----------------------------------------------------------------------------------------|
-| **Ideas**        | `MindAttic.Ideas/src/MindAttic.Ideas.Web/MindAttic.Ideas.Web.csproj`                    |
+| **Ideas**        | `MindAttic.Ideas/src/MindAttic.Ideas.Blazor/MindAttic.Ideas.Blazor.csproj`              |
 |                  | `MindAttic.Ideas/src/MindAttic.Ideas.Core/MindAttic.Ideas.Core.csproj`                  |
-| **Prose**| `Prose/v3/Prose.Core/Prose.Core.csproj`                         |
+| **Prose**        | `Prose/v3/Prose.Core/Prose.Core.csproj`                                                 |
 | **Tutor**        | `Tutor/Tutor.Core/Tutor.Core.csproj`                                                    |
 
-All subscriber repos live under `D:\Projects\MindAttic\`.
+All subscriber repos live under `D:\Projects\MindAttic\`. This table is verified against an actual
+`<PackageReference Include="MindAttic.Authentication">` grep, not just a mention in a comment — e.g.
+`Prose.Codex`/`Prose.Shared`/`Prose.Writer` and `Tutor.Blazor` only *mention* Authentication in
+comments and reach it transitively via an in-solution `ProjectReference` to `Prose.Core`/`Tutor.Core`;
+they have no version pin to edit. Also check consumer **source code**, not just csproj files, for
+direct `using MindAttic.Authentication.<Crypto|Internal|Secrets>` — those types now live in
+[`MindAttic.Cryptography`](https://github.com/mindattic/Cryptography) and a stale `using` won't show
+up as a missing PackageReference, only as a compile error in that subscriber (e.g. Prose's
+`Prose.Cli/Cli/ResetPasswordCli.cs` hit exactly this during the 2026-08-12 extraction).
 
 ### Release + propagation procedure
 

@@ -4,7 +4,7 @@ project: MindAttic.Authentication
 code: AUTH
 layer: bible
 status: living
-updated: 2026-06-07
+updated: 2026-08-12
 ---
 
 # MindAttic.Authentication — Project Bible
@@ -48,21 +48,28 @@ MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication 
    |  Components/ <MaLogin> <MaMfaChallenge> ...  (presentation-only SSR) |
    |      |                                                               |
    |  Services/ AuthenticationService, MfaEnrollment, PasswordChange,     |
-   |            PasswordReset, Totp, AccountLockout, AuthAuditWriter,     |
+   |            PasswordReset, AccountLockout, AuthAuditWriter,           |
    |            PasswordPolicy, UserStore, UserAdmin, AuthBootstrapper    |
-   |      |              |                |                   |           |
-   |  Crypto/ Argon2id+PHC   Secrets/ IAuthSecrets   Data/ auth schema    |
-   |   (IPasswordHasher)      (fail-closed)          (IAuthDataContext)   |
-   +-----------|---------------------|------------------------|----------+
-               |                     |                        |
-        Konscious Argon2      MindAttic.Vault          host EF Core DbContext
-        BCrypt (legacy)    (Security/DataProtection)    (owns `auth` schema)
+   |      |                                            |                   |
+   |  Data/ auth schema (IAuthDataContext)              |                   |
+   +-----------|---------------------------------------|-------------------+
+               |  PackageReference (NuGet)              |
+   +-----------v-----------------------------+           |
+   |   MindAttic.Cryptography (standalone)   |           |
+   |   Argon2id+PHC, TOTP, SecureToken,       |           |
+   |   ISecretResolver (fail-closed)          |          host EF Core DbContext
+   +-----------|---------------------|--------+          (owns `auth` schema)
+               |                     |
+        Konscious Argon2      MindAttic.Vault
+        BCrypt (legacy)    (Security/DataProtection,
+                             resolved by the host app,
+                             not a compile-time dep)
 ```
 
 ### 4.1 Projects / layout
-- `src/MindAttic.Authentication/` — the RCL, `net10.0`, packed to NuGet (`1.0.0`). Subfolders: `Options/`, `Secrets/`, `Crypto/`, `Entities/`, `Data/`, `Services/`, `Web/`, `Components/`, `Internal/`. Root-level constants: `MaClaims.cs` (claim types, roles, policies, scheme names). (`MindAttic.Authentication.csproj`)
-- `tests/MindAttic.Authentication.Tests/` — NUnit 4 suite (184 tests). (`MindAttic.Authentication.Tests.csproj`)
-- **Only hard dependency:** `MindAttic.Vault` (exact-pinned). Plus Konscious Argon2 (1.3.1, exact-pin), BCrypt.Net-Next (legacy verify), EF Core Relational.
+- `src/MindAttic.Authentication/` — the RCL, `net10.0`, packed to NuGet (`4.0.0`). Subfolders: `Options/`, `Entities/`, `Data/`, `Services/`, `Web/`, `Components/`, `Internal/`. Root-level constants: `MaClaims.cs` (claim types, roles, policies, scheme names). (`MindAttic.Authentication.csproj`)
+- `tests/MindAttic.Authentication.Tests/` — NUnit 4 suite (90 tests). (`MindAttic.Authentication.Tests.csproj`)
+- **Only hard dependency:** [`MindAttic.Cryptography`](https://github.com/mindattic/Cryptography) (Argon2id hashing, PHC codec, TOTP, secure tokens, fail-closed secret resolution — extracted standalone so it's consumable/auditable independently of this library's account/session logic), plus EF Core Relational. `MindAttic.Vault` is **not** a direct dependency — secrets resolve through `IConfiguration` by string convention (`MindAttic:Vault:Security:*`), populated upstream by each host's own `Program.cs`.
 - Adopted by three subscribers as a NuGet PackageReference — propagation procedure is mandatory; see [CLAUDE.md](../CLAUDE.md) and [LAW-7](#AUTH-LAW-7).
 
 ### 4.2 Domain model (NOUNS)
@@ -78,32 +85,32 @@ Canonical identity schema owned by the library, all tables in the isolated `auth
 
 ### 4.3 Key services (VERBS)
 - **AuthenticationService** — the `LoginAsync` / `ConfirmMfaAsync` pipeline (credential verify → decoy timing → lockout → MFA step-up). (`Services/AuthenticationService.cs`)
-- **Argon2idPasswordHasher** (`IPasswordHasher`) — hash/verify/`NeedsRehash`; pepper HMAC pre-hash; legacy upgrade-on-login. (`Crypto/Argon2idPasswordHasher.cs`, `Crypto/Phc.cs`)
+- **Argon2idPasswordHasher** (`IPasswordHasher`) — hash/verify/`NeedsRehash`; pepper HMAC pre-hash; legacy upgrade-on-login. **Lives in `MindAttic.Cryptography.Crypto`** (package), not this repo.
 - **AccountLockoutService** — persistent exponential backoff, per-account and per-IP. (`Services/AccountLockoutService.cs`)
-- **TotpService** — RFC 6238 TOTP generate/validate with replay guard. (`Services/TotpService.cs`)
+- **TotpService** (`ITotpService`) — RFC 6238 TOTP generate/validate with replay guard. **Lives in `MindAttic.Cryptography.Totp`** (package); this repo's `MfaOptions` (`Options/MfaOptions.cs`) holds only app-policy fields (`RequireForAdmin`, `PendingEnrollmentMinutes`) — the crypto params (`TotpOptions`) bind from the same config section in the package.
 - **MfaEnrollmentService** — verify-before-enable enrollment + recovery-code generation. (`Services/MfaEnrollmentService.cs`)
 - **PasswordPolicy** — NIST policy + HIBP (fail-open + offline) + history. (`Services/PasswordPolicy.cs`)
-- **PasswordChangeService** / **PasswordResetService** — reauth'd change; out-of-band reset (no auto-login). (`Services/PasswordChangeService.cs`, `Services/PasswordResetService.cs`)
-- **AuthAuditWriter** — sanitized, hashed-key audit writes. (`Services/AuthAuditWriter.cs`)
+- **PasswordChangeService** / **PasswordResetService** — reauth'd change; out-of-band reset (no auto-login). Reset tokens generate/hash via `MindAttic.Cryptography.Tokens` (`SecureToken`, `IKeyedTokenHasher`). (`Services/PasswordChangeService.cs`, `Services/PasswordResetService.cs`)
+- **AuthAuditWriter** — sanitized, hashed-key audit writes; account/IP canonicalization via `MindAttic.Cryptography.Internal.KeyCanonicalizer`. (`Services/AuthAuditWriter.cs`)
 - **UserStore** / **UserAdminService** — account lookup / admin create-disable (no hard delete). (`Services/UserStore.cs`, `Services/UserAdminService.cs`)
-- **AuthBootstrapper** — race-safe first-run admin seed gated on a Vault bootstrap token. (`Services/AuthBootstrapper.cs`)
-- **ConfigAuthSecrets** (`IAuthSecrets`) — fail-closed Vault secret access. (`Secrets/ConfigAuthSecrets.cs`)
+- **AuthBootstrapper** — race-safe first-run admin seed gated on a bootstrap token. (`Services/AuthBootstrapper.cs`)
+- **ConfigSecretResolver** (`ISecretResolver`) — fail-closed secret access over the Vault `Security` config section. **Lives in `MindAttic.Cryptography.Secrets`** (package), not this repo.
 - Web seam — `AddMindAtticAuthentication` (`Web/MindAtticAuthExtensions.cs`), `UseMindAtticAuthentication` (`Web/MindAtticAuthAppExtensions.cs`), `MapMindAtticAuthEndpoints` (`Web/AuthEndpoints.cs`), `ApplyMindAtticAuthConfiguration` (`Data/AuthModel.cs`), `MaRevalidatingAuthenticationStateProvider` (`Web/MaRevalidatingAuthenticationStateProvider.cs`), `CookieValidation` (`Web/CookieValidation.cs` — idle timeout + SecurityStamp recheck on the HTTP path), `IMaClaimsAugmentor` (`Web/IMaClaimsAugmentor.cs` — app hook to bake extra claims at sign-in), `DevAuthBypass` (`Web/DevAuthBypass.cs` — `#if MA_DEV_AUTH` Debug-only; compiled out of Release builds entirely).
 
 ## 5. The Laws {#AUTH-§5}
 This project **inherits all org-wide laws** in [`MindAttic.HouseRules.md`](../../MindAttic.HouseRules.md) by reference (do not restate). Most directly load-bearing here: [HOUSE-LAW-1](../../MindAttic.HouseRules.md#HOUSE-LAW-1) (whole-number versioning), [HOUSE-LAW-2](../../MindAttic.HouseRules.md#HOUSE-LAW-2) (soft-disable), [HOUSE-LAW-3](../../MindAttic.HouseRules.md#HOUSE-LAW-3) (Vault secrets), [HOUSE-LAW-7](../../MindAttic.HouseRules.md#HOUSE-LAW-7) (adopt this library), [HOUSE-LAW-8](../../MindAttic.HouseRules.md#HOUSE-LAW-8) (done = verified). The following are **project-specific** laws.
 
 ### {#AUTH-LAW-1} AUTH-LAW-1 — Passwords are Argon2id + a Vault pepper, never anything weaker
-Every credential at rest is Argon2id (RFC 9106; m≥19456,t≥2,p≥1 floor, startup-validated fail-closed) over an `HMAC-SHA256(Vault pepper, NFKC-UTF8(password))` pre-hash, stored as a self-describing PHC string. The pepper lives in Vault — a different trust domain than the DB. Legacy bcrypt/SHA-256 hashes are verified once then transparently re-hashed on next login. *(Verified by `Argon2idPasswordHasherTests`, `PhcArgon2Tests`, `AuthCryptoOptionsTests`.)*
+Every credential at rest is Argon2id (RFC 9106; m≥19456,t≥2,p≥1 floor, startup-validated fail-closed) over an `HMAC-SHA256(Vault pepper, NFKC-UTF8(password))` pre-hash, stored as a self-describing PHC string. The pepper lives in Vault — a different trust domain than the DB. Legacy bcrypt/SHA-256 hashes are verified once then transparently re-hashed on next login. The hasher and PHC codec live in the `MindAttic.Cryptography` package now — moving assembly/namespace has no effect on already-stored PHC strings (plain text, algorithm-only, not tied to .NET type identity). *(Verified by `Argon2idPasswordHasherTests`, `PhcArgon2Tests`, `Argon2OptionsTests` in `MindAttic.Cryptography.Tests`.)*
 
 ### {#AUTH-LAW-2} AUTH-LAW-2 — Secrets resolve fail-closed through Vault; the app never writes prod secrets
-All auth secrets (pepper, DP KEK, reset-token key, CAPTCHA secret, bootstrap token) resolve through `IAuthSecrets` over the Vault `Security` bucket. A missing/blank secret **throws** — it never coerces to empty. Provisioning is a separate operator tool; the running app never writes prod secrets. (Specializes org [HOUSE-LAW-3](../../MindAttic.HouseRules.md#HOUSE-LAW-3).) *(Verified by `ConfigAuthSecretsTests`.)*
+All auth secrets (pepper, DP KEK, reset-token key, CAPTCHA secret, bootstrap token) resolve through `ISecretResolver` (`MindAttic.Cryptography.Secrets`) over the Vault `Security` config section. A missing/blank secret **throws** — it never coerces to empty. Provisioning is a separate operator tool; the running app never writes prod secrets. (Specializes org [HOUSE-LAW-3](../../MindAttic.HouseRules.md#HOUSE-LAW-3).) *(Verified by `ConfigSecretResolverTests` in `MindAttic.Cryptography.Tests`.)*
 
 ### {#AUTH-LAW-3} AUTH-LAW-3 — Uniform response and uniform timing; no enumeration oracle
-Every authentication outcome returns one generic message and runs the same work (decoy Argon2id verify for absent/inactive users) behind a measured timing floor (750ms + ≤100ms jitter on the login endpoint). Reason codes are server-only and never surfaced. Comparisons use `FixedTimeEquals`. *(Verified by `TimingFloorTests`, `AuthKeysTests`, decoy/uniform paths in `AuthAuditWriterTests`.)*
+Every authentication outcome returns one generic message and runs the same work (decoy Argon2id verify for absent/inactive users) behind a measured timing floor (750ms + ≤100ms jitter on the login endpoint). Reason codes are server-only and never surfaced. Comparisons use `FixedTimeEquals`. *(Verified by `TimingFloorTests`, `KeyCanonicalizerTests` in `MindAttic.Cryptography.Tests`; decoy/uniform paths in `AuthAuditWriterTests` here.)*
 
 ### {#AUTH-LAW-4} AUTH-LAW-4 — MFA is enforced and never bypassed
-TOTP (RFC 6238, replay-guarded, verify-before-enable) plus single-use recovery codes stored only as Argon2id+pepper hashes. Admin role requires MFA (global policy + forced enrollment). Password reset preserves MFA, never sets `amr=mfa`, and never auto-logs-in. *(Verified by `TotpServiceTests`, `PasswordResetServiceTests`.)*
+TOTP (RFC 6238, replay-guarded, verify-before-enable) plus single-use recovery codes stored only as Argon2id+pepper hashes. Admin role requires MFA (global policy + forced enrollment). Password reset preserves MFA, never sets `amr=mfa`, and never auto-logs-in. *(Verified by `TotpServiceTests` in `MindAttic.Cryptography.Tests`; `PasswordResetServiceTests` here.)*
 
 ### {#AUTH-LAW-5} AUTH-LAW-5 — Endpoints own sign-in; components are presentation-only
 All `SignInAsync`/`SignOutAsync` happen in `[ValidateAntiforgery]` minimal-API endpoints (`/_ma-auth/*`), never inside a Blazor circuit or component. `<MaLogin/>` and siblings are static-SSR `<form method=post>` with antiforgery on every POST; no component contains a sign-in call. A fail-closed `IStartupFilter` asserts the middleware order. *(Verified by `UrlSafetyTests` (returnUrl safety on the endpoint path); build-enforced component shape.)*
@@ -115,10 +122,10 @@ All `SignInAsync`/`SignOutAsync` happen in `[ValidateAntiforgery]` minimal-API e
 This library ships as a NuGet PackageReference to Ideas (×2 csproj), Prose, and Tutor. Every release bumps `<Version>` (whole-number), packs to the local feed, updates all subscriber csproj references, and rebuilds each subscriber. Missing any reference point is an incomplete release. (See [CLAUDE.md](../CLAUDE.md) for the exhaustive reference-point table.) *(Verified operationally; no in-repo test.)*
 
 ## 6. Verified state {#AUTH-§6}
-Evidence captured 2026-06-07 on this working tree:
-- **Build:** `dotnet build -c Debug` → **succeeded, 0 warnings, 0 errors.** Library packs to `1.0.0`.
-- **Tests:** `dotnet test` → **Passed! Failed: 0, Passed: 184, Skipped: 0, Total: 184** (NUnit 4, net10.0).
-- **Proven working (✅, test-cited):** Argon2id+pepper hasher + PHC; fail-closed Vault secrets (`IAuthSecrets`); the 8-entity `auth` model; persistent per-account/per-IP lockout backoff; audit writer (sanitized, hashed keys); password policy (HIBP fail-open + offline + history); TOTP generate/validate + replay guard; password-reset request/consume; account-admin create/disable; URL-safety (open-redirect) guard; timing floor; account-key NFKC normalization; crypto options floor validation.
+Evidence captured 2026-08-12 on this working tree:
+- **Build:** `dotnet build -c Debug` → **succeeded, 0 warnings, 0 errors.** Library packs to `4.0.0`.
+- **Tests:** `dotnet test` → **Passed! Failed: 0, Passed: 90, Skipped: 0, Total: 90** (NUnit 4, net10.0). The crypto-primitive tests (Argon2id, PHC, TOTP, timing floor, secret resolution — 128 total) moved with the code to `MindAttic.Cryptography`'s own suite; see that repo's BIBLE §6.
+- **Proven working (✅, test-cited):** the 8-entity `auth` model; persistent per-account/per-IP lockout backoff; audit writer (sanitized, hashed keys, via `MindAttic.Cryptography.Internal.KeyCanonicalizer`); password policy (HIBP fail-open + offline + history); password-reset request/consume (tokens via `MindAttic.Cryptography.Tokens`); account-admin create/disable; URL-safety (open-redirect) guard. Argon2id+pepper hashing, PHC, TOTP, fail-closed secret resolution (`ISecretResolver`), and the timing floor are proven in `MindAttic.Cryptography`'s own suite, consumed here as a package.
 - **🟡 partial / built-but-unit-test-thin:** the `LoginAsync`/`ConfirmMfaAsync` end-to-end pipeline, MFA enrollment service, change-password service, bootstrap seeding, the Web DI/middleware/endpoints, the revalidating auth-state provider, and the Razor components are **compiled and present** but not all directly unit-tested in isolation — see [USER_STORIES](USER_STORIES.md).
 - **⬜ planned:** email-delivered password reset wiring, the provisioning CLI (`tools/`), signed deterministic pack, and the three app adoptions (Prose → Ideas → Tutor).
 

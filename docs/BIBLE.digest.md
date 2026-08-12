@@ -1,7 +1,7 @@
 # MindAttic.Authentication - Bible Digest
 > AUTHORITATIVE - full detail in docs/BIBLE.md
 > generatedFrom: docs/BIBLE.md (#AUTH-§1, #AUTH-§3, #AUTH-§5, #AUTH-§9)
-> generated: 2026-06-07 by tools/codex.ps1 digest - do not hand-edit
+> generated: 2026-08-12 by tools/codex.ps1 digest - do not hand-edit
 
 ## The one sentence (AUTH-§1)
 MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication engine shipped as a single Razor Class Library (NuGet) so MindAttic.Ideas, Prose, and Tutor all authenticate **identically** — built to OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker **and a future full database breach**.
@@ -34,4 +34,4 @@ This project **inherits all org-wide laws** in [`MindAttic.HouseRules.md`](../..
 - done: 20 | partial: 9 | planned: 7 | cut: 1
 
 ## Latest amendment (amendment wins over the bible)
-- AUTH-A2 — Codex full-sync 2026-06-07: reconcile §4 architecture canon to disk (supersedes AUTH-A1 §4 coverage)
+- AUTH-A3 — Extract cryptographic primitives into MindAttic.Cryptography (supersedes AUTH-A2 §4/§4.1/§4.3/LAW-1/LAW-2/LAW-3/LAW-4/§6 coverage)
