@@ -1,4 +1,4 @@
-# Build output
+﻿# Build output
 [Bb]in/
 [Oo]bj/
 [Oo]ut/
@@ -16,4 +16,4 @@ artifacts/
 *.log
 Thumbs.db
 .DS_Store
-.claude/checkpoint.md
+.claude/quicksave.md
