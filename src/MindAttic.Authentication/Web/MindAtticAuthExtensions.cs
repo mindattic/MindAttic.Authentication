@@ -68,8 +68,6 @@ public static class MindAtticAuthExtensions
         services.TryAddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
         services.TryAddSingleton<ITotpService, TotpService>();
         services.TryAddSingleton<IAuthAuditWriter, AuthAuditWriter>();
-        // Dev/fallback email sender; a Windows host overrides this with a MindAttic.Psst adapter.
-        services.TryAddSingleton<IAuthEmailSender, LoggingAuthEmailSender>();
 
         // Per-request services.
         services.AddScoped<IUserStore, UserStore>();
@@ -154,12 +152,45 @@ public static class MindAtticAuthExtensions
         services.AddCascadingAuthenticationState();
         services.AddScoped<AuthenticationStateProvider, MaRevalidatingAuthenticationStateProvider>();
 
+        // Auth email: SMTP when MindAttic:Vault:Notifications:email is complete, else the log-only
+        // fallback with a loud startup warning. A host-registered IAuthEmailSender wins (TryAdd).
+        // Registered after the fail-closed checks above so a throw never leaves a half-wired email stack.
+        services.AddMindAtticAuthEmail(config, o.AppName);
+
 #if MA_DEV_AUTH
         // DEV ONLY (Debug-built packages only; compiled out of Release). Reads the
         // app's .env so a consumer needs no code — just drop a .env. See DevAuthBypass.
         services.AddDevAuthBypass(config);
 #endif
 
+        return services;
+    }
+
+    /// <summary>
+    /// Registers auth email delivery (called by <see cref="AddMindAtticAuthentication{TContext}"/>; public so a
+    /// host that wires services by hand can call it). The choice is made when the sender is first resolved:
+    /// complete SMTP settings under <see cref="AuthEmailSettings.SectionPath"/> → <see cref="SmtpAuthEmailSender"/>;
+    /// otherwise <see cref="LoggingAuthEmailSender"/>. <see cref="AuthEmailStartup"/> logs which one is active
+    /// and warns loudly when email will not be delivered. Every registration is TryAdd, so a host's own
+    /// <see cref="IAuthEmailSender"/> (or a test's <see cref="IAuthMailTransport"/>) takes precedence.
+    /// </summary>
+    public static IServiceCollection AddMindAtticAuthEmail(this IServiceCollection services, IConfiguration config, string appName)
+    {
+        services.TryAddSingleton(_ => AuthEmailStatus.From(config));
+        services.TryAddSingleton(sp => sp.GetRequiredService<AuthEmailStatus>().Settings
+            ?? throw new InvalidOperationException($"Auth email SMTP settings are not configured at {AuthEmailSettings.SectionPath}."));
+        services.TryAddSingleton<IAuthMailTransport>(sp => new MailKitAuthMailTransport(sp.GetRequiredService<AuthEmailSettings>()));
+        services.TryAddSingleton<LoggingAuthEmailSender>();
+        services.TryAddSingleton(sp => new SmtpAuthEmailSender(
+            sp.GetRequiredService<IAuthMailTransport>(),
+            sp.GetRequiredService<AuthEmailSettings>(),
+            sp.GetRequiredService<IOptions<AuthResetOptions>>(),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SmtpAuthEmailSender>>(),
+            appName));
+        services.TryAddSingleton<IAuthEmailSender>(sp => sp.GetRequiredService<AuthEmailStatus>().Settings is null
+            ? sp.GetRequiredService<LoggingAuthEmailSender>()
+            : sp.GetRequiredService<SmtpAuthEmailSender>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<Microsoft.Extensions.Hosting.IHostedService, AuthEmailStartup>());
         return services;
     }
 }

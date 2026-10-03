@@ -60,19 +60,19 @@ MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication 
 ```
 
 ### 4.1 Projects / layout
-- `src/MindAttic.Authentication/` — the RCL, `net10.0`, packed to NuGet (`<Version>` `4.0.0`). Subfolders: `Options/`, `Secrets/`, `Crypto/`, `Entities/`, `Data/`, `Services/`, `Web/`, `Components/`, `Internal/`. Root-level constants: `MaClaims.cs` (claim types, roles, policies, scheme names). (`MindAttic.Authentication.csproj`)
-- `tests/MindAttic.Authentication.Tests/` — NUnit 4 suite (196 tests). (`MindAttic.Authentication.Tests.csproj`)
-- **Package dependencies:** Konscious Argon2 (1.3.1, exact-pin), BCrypt.Net-Next (legacy verify), EF Core Relational, and `MindAttic.Vault` 1.0.0 — declared, but no code in `src/` calls it; secrets resolve through plain `IConfiguration` (`Secrets/ConfigAuthSecrets.cs`).
+- `src/MindAttic.Authentication/` — the RCL, `net10.0`, packed to NuGet (`<Version>` `5.0.0`). Subfolders: `Options/`, `Secrets/`, `Crypto/`, `Entities/`, `Data/`, `Services/`, `Web/`, `Components/`, `Internal/`. Root-level constants: `MaClaims.cs` (claim types, roles, policies, scheme names). (`MindAttic.Authentication.csproj`)
+- `tests/MindAttic.Authentication.Tests/` — NUnit 4 suite (215 tests). (`MindAttic.Authentication.Tests.csproj`)
+- **Package dependencies:** Konscious Argon2 (1.3.1, exact-pin), BCrypt.Net-Next (legacy verify), EF Core Relational, MailKit 4.16.0 (SMTP for auth email). No `MindAttic.Vault` package: secrets and SMTP settings resolve through plain `IConfiguration` under the `MindAttic:Vault:*` names (`Secrets/ConfigAuthSecrets.cs`, `Services/AuthEmailSettings.cs`); the host fills them however it likes (MindAttic.Vault files, env vars, Key Vault).
 
 ### 4.1a Consumers {#AUTH-§4-consumers}
 Four sibling apps reference the package (a Debug-only `ProjectReference` to this repo sits beside the `PackageReference` where noted). Each sets its own `AppName`:
 
 | App | Referencing project(s) | Pinned version | `AppName` / wiring |
 |---|---|---|---|
-| MindAttic.Ideas | MindAttic.Ideas.Blazor, MindAttic.Ideas.Core (+ Debug ProjectReference) | 4.0.0 | `"Ideas"`; registers `IdeasClaimsAugmentor : IMaClaimsAugmentor` |
-| IdiotProof | IdiotProof.Blazor | 3.0.0 | `"IdiotProof"` |
-| Prose | Prose.Core (wired in Prose.Hub) | 2.0.0 | `"Prose"` |
-| Tutor | Tutor.Core (+ Debug ProjectReference; wired in Tutor.Blazor) | 2.0.0 | `"Tutor"` |
+| MindAttic.Ideas | MindAttic.Ideas.Blazor, MindAttic.Ideas.Core (+ Debug ProjectReference) | 5.0.0 | `"Ideas"`; registers `IdeasClaimsAugmentor : IMaClaimsAugmentor` |
+| IdiotProof | IdiotProof.Blazor | 5.0.0 | `"IdiotProof"` |
+| Prose | Prose.Core (wired in Prose.Hub) | 5.0.0 | `"Prose"` |
+| Tutor | Tutor.Core (+ Debug ProjectReference; wired in Tutor.Blazor) | 5.0.0 | `"Tutor"` |
 
 Bumping a consumer's pinned version is that app's own work; a release of this library follows [LAW-7](#AUTH-LAW-7). The canonical role name is `MaRoles.Admin` (`"Admin"`) across all consumers; apps map their own legacy role names onto it in their data migration rather than configuring a different name.
 
@@ -97,6 +97,7 @@ Canonical identity schema owned by the library, all tables in the isolated `auth
 - **PasswordChangeService** / **PasswordResetService** — reauth'd change; out-of-band reset (no auto-login). (`Services/PasswordChangeService.cs`, `Services/PasswordResetService.cs`)
 - **AuthAuditWriter** — sanitized, hashed-key audit writes. (`Services/AuthAuditWriter.cs`)
 - **UserStore** / **UserAdminService** — account lookup / admin create-disable (no hard delete). (`Services/UserStore.cs`, `Services/UserAdminService.cs`)
+- **SmtpAuthEmailSender** (`IAuthEmailSender`) — queued SMTP delivery of reset links and security alerts over MailKit (TLS required, 3 attempts, never throws to the caller, never logs the link); chosen when `AuthEmailSettings` (`MindAttic:Vault:Notifications:email`) is complete, else the log-only `LoggingAuthEmailSender`. `AuthEmailStartup` (hosted) starts the queue and warns at startup when mail will not be delivered. (`Services/SmtpAuthEmailSender.cs`, `Services/AuthEmailSettings.cs`, `Services/AuthEmailStartup.cs`)
 - **AuthBootstrapper** — race-safe first-run admin seed gated on a Vault bootstrap token. (`Services/AuthBootstrapper.cs`)
 - **ConfigAuthSecrets** (`IAuthSecrets`) — fail-closed Vault secret access. (`Secrets/ConfigAuthSecrets.cs`)
 - Web seam — `AddMindAtticAuthentication` (`Web/MindAtticAuthExtensions.cs`), `UseMindAtticAuthentication` (`Web/MindAtticAuthAppExtensions.cs`), `MapMindAtticAuthEndpoints` (`Web/AuthEndpoints.cs`), `ApplyMindAtticAuthConfiguration` (`Data/AuthModel.cs`), `MaRevalidatingAuthenticationStateProvider` (`Web/MaRevalidatingAuthenticationStateProvider.cs`), `CookieValidation` (`Web/CookieValidation.cs` — idle timeout + SecurityStamp recheck on the HTTP path), `IMaClaimsAugmentor` (`Web/IMaClaimsAugmentor.cs` — app hook to bake extra claims at sign-in), `DevAuthBypass` (`Web/DevAuthBypass.cs` — `#if MA_DEV_AUTH` Debug-only; compiled out of Release builds entirely).
@@ -127,16 +128,16 @@ This library ships as a NuGet PackageReference to the consumers in [§4.1a](#AUT
 
 ## 6. Verified state {#AUTH-§6}
 Evidence captured 2026-10-03 on this working tree:
-- **Tests:** `dotnet test MindAttic.Authentication.sln -c Debug` → **Passed! Failed: 0, Passed: 196, Skipped: 0, Total: 196** (NUnit 4, net10.0). Name the solution explicitly: the root holds both a `.sln` and a `.slnx`.
-- **Package:** `<Version>` `4.0.0`.
-- **Proven working (✅, test-cited):** Argon2id+pepper hasher + PHC; fail-closed secrets (`IAuthSecrets`), including tolerance of Linux App Service setting-name mangling; the 8-entity `auth` model; persistent per-account/per-IP lockout backoff; audit writer (sanitized, hashed keys); password policy (HIBP fail-open + offline + history); TOTP generate/validate + replay guard; password-reset request/consume; account-admin create/disable; URL-safety (open-redirect) guard; timing floor; account-key NFKC normalization; crypto options floor validation.
+- **Tests:** `dotnet test MindAttic.Authentication.slnx -c Debug` → **Passed! Failed: 0, Passed: 215, Skipped: 0, Total: 215** (NUnit 4, net10.0). Name the solution explicitly: the root holds both a `.sln` and a `.slnx`.
+- **Package:** `<Version>` `5.0.0`, packed Release to `C:\LocalNuGet`.
+- **Proven working (✅, test-cited):** Argon2id+pepper hasher + PHC; fail-closed secrets (`IAuthSecrets`), including tolerance of Linux App Service setting-name mangling; the 8-entity `auth` model; persistent per-account/per-IP lockout backoff; audit writer (sanitized, hashed keys); password policy (HIBP fail-open + offline + history); TOTP generate/validate + replay guard; password-reset request/consume; SMTP delivery of auth email (queued, retried, fake-transport tested) with the log-only fallback and its startup warning; account-admin create/disable; URL-safety (open-redirect) guard; timing floor; account-key NFKC normalization; crypto options floor validation.
 - **🟡 partial / built-but-unit-test-thin:** the `LoginAsync`/`ConfirmMfaAsync` end-to-end pipeline, MFA enrollment service, change-password service, bootstrap seeding, the Web DI/middleware/endpoints, the revalidating auth-state provider, and the Razor components are **compiled and present** but not all directly unit-tested in isolation — see [USER_STORIES](USER_STORIES.md).
-- **In use:** the four consumers in [§4.1a](#AUTH-§4-consumers) call `AddMindAtticAuthentication` and `MapMindAtticAuthEndpoints`. None registers its own `IAuthEmailSender`, so reset and security-alert emails go to the default `LoggingAuthEmailSender` (log only).
-- **⬜ planned:** email-delivered password reset, the provisioning CLI, a startup filter asserting middleware order, a signed deterministic pack.
+- **In use:** the four consumers in [§4.1a](#AUTH-§4-consumers) call `AddMindAtticAuthentication` and `MapMindAtticAuthEndpoints`, so each gets SMTP auth email as soon as `MindAttic:Vault:Notifications:email` is configured for it, and the startup warning until then. None sets `MindAttic:Auth:Reset:PublicBaseUrl` or hosts a page at `ResetPath`, so no consumer sends reset mail yet; the library itself never calls `SendSecurityAlertAsync`.
+- **⬜ planned:** the provisioning CLI, a startup filter asserting middleware order, a signed deterministic pack.
 
 ## 7. Active frontier {#AUTH-§7}
 - Design notes: [docs/rfc/](rfc/) — see [RFC 0001](rfc/0001-provisioning-cli.md) (provisioning CLI for CSPRNG secrets).
-- Open epics in [USER_STORIES](USER_STORIES.md): **Epic D (WebAuthn)**, **Epic E (reset email delivery)**, **Epic F (provisioning & packaging)**, **Epic G (login pipeline & web wiring hardening)**.
+- Open epics in [USER_STORIES](USER_STORIES.md): **Epic D (WebAuthn)**, **Epic F (provisioning & packaging)**, **Epic G (login pipeline & web wiring hardening)**.
 - Authoritative design detail and residual-risk register: [SECURITY_SPEC.md](SECURITY_SPEC.md) §8 (accepted residuals: AITM relay vs TOTP; pepper/KEK in process memory; Vault outage = fail-closed auth outage; ≤60s stale-principal window; operator-reset MFA-bypass channel; distributed low-and-slow stuffing).
 
 ## 8. Quality bar {#AUTH-§8}

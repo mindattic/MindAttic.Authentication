@@ -57,15 +57,31 @@ exist**, using `bootstrap-token` as the initial password, with `MustChangePasswo
 
 ## 5. Email (password reset / security alerts)
 
-Auth emails go through `IAuthEmailSender`. On Windows hosts, register a `MindAttic.Psst`-backed adapter
-(email channel; **Twilio/SMS off**) reading the shared `MindAttic:Vault:Notifications:email` SMTP config.
-The library ships a logging fallback for dev. Reset is enumeration-safe ("if an account exists, we've
-emailed a link") and the link base comes from a configured public base URL, never `Request.Host`.
+Auth emails go through `IAuthEmailSender`, which `AddMindAtticAuthentication` chooses at first use:
+
+| Configuration | Sender | Result |
+|---|---|---|
+| `MindAttic:Vault:Notifications:email` has `smtpHost`, `username`, `password`, `from` (`smtpPort` optional, default 587) | `SmtpAuthEmailSender` | Mail is delivered over SMTP (MailKit). Port 465 = implicit TLS; any other port requires STARTTLS. |
+| Section absent or incomplete | `LoggingAuthEmailSender` | Nothing is delivered. A startup **warning** says so and names the missing fields. |
+| Host registered its own `IAuthEmailSender` | the host's | The library's registration steps aside. |
+
+- **Provisioning:** dev — `%APPDATA%\MindAttic\Notifications\providers.json`
+  (`{ "email": { "smtpHost", "smtpPort", "username", "password", "from" } }`); prod — app settings
+  `MindAttic__Vault__Notifications__email__smtpHost` … `__from` (or Key Vault references). Also set
+  `MindAttic__Auth__Reset__PublicBaseUrl` to the app's public https origin: a reset link must be absolute,
+  so with SMTP on and no base URL the sender refuses reset mail and the startup log warns.
+- **Delivery is queued.** The reset request returns without waiting on SMTP, so a slow or failing mail
+  server cannot become an enumeration oracle ([LAW-3](BIBLE.md#AUTH-LAW-3)). Each message gets 3 attempts
+  (2 s, 4 s back-off); a final failure is logged as an error. Queued mail drains on graceful shutdown.
+- **Logs never carry** the reset link (a bearer credential) or the SMTP password; recipients are masked
+  (`a***@example.com`). Confirm the startup line `auth email is delivered over SMTP (host:port as user from …)`.
+- Reset is enumeration-safe ("if an account exists, we've emailed a link") and the link base comes from
+  `PublicBaseUrl`, never `Request.Host`.
 
 ## 6. Deployment (Windows App Service, Prose-style)
 
 GitHub Actions on `windows-latest`, **build → migrate → deploy**:
-- **build:** `dotnet publish`; restore the private packages (Vault, Authentication, Psst, Legion) from the
+- **build:** `dotnet publish`; restore the private packages (Vault, Authentication, Legion) from the
   local-packages feed + nuget.org.
 - **migrate:** apply EF migrations (creates/updates the `auth` schema) via an **OIDC service principal**
   with `db_ddladmin`; the App Service managed identity is read/write only and cannot run DDL.

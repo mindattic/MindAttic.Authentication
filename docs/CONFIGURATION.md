@@ -65,6 +65,30 @@ Invalid values **fail startup** (`ValidateOrThrow`).
 | `HibpFailOpen` | `true` (offline corpus still applies; skip is audited) |
 | `HistoryDepth` | `5` |
 
+## `MindAttic:Auth:Reset` (`AuthResetOptions`)
+
+| Key | Default | Notes |
+|---|---|---|
+| `PublicBaseUrl` | `""` | Absolute origin for reset links (e.g. `https://ideas.mindattic.com`); never derived from `Request.Host`. Required for reset email: the SMTP sender refuses a relative link. |
+| `ResetPath` | `/account/reset` | Page the link points at; the token is appended as `?token=`. |
+| `TokenTtlMinutes` | `15` | |
+| `MaxEmailsPerHour` | `3` | Per account. |
+
+## Auth email — `MindAttic:Vault:Notifications:email` (optional)
+
+MindAttic.Vault `Notifications` format, shared with MindAttic.Psst. Dev: `%APPDATA%\MindAttic\Notifications\providers.json`.
+Prod: `MindAttic__Vault__Notifications__email__<key>` app settings or Key Vault references. Never appsettings/git.
+
+| Key | Required | Notes |
+|---|---|---|
+| `smtpHost` | yes | |
+| `smtpPort` | no | Default `587`. `465` = implicit TLS; every other port requires STARTTLS. |
+| `username` / `password` | yes | SMTP login. The password is never logged. |
+| `from` | yes | `addr@example.com` or `Name <addr@example.com>`. |
+
+All required keys present ⇒ mail is delivered (`SmtpAuthEmailSender`). None ⇒ log-only fallback with a startup
+warning. Some ⇒ the same fallback, and the warning names the missing keys.
+
 ## Host code options (`MindAtticAuthOptions`, set in `AddMindAtticAuthentication`)
 
 | Member | Default | Notes |

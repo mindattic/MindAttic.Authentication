@@ -83,6 +83,43 @@ public sealed class PasswordResetServiceTests
         Assert.That(row.TokenHash, Is.Not.EqualTo(plaintext), "the stored value must not be the plaintext token");
     }
 
+    private sealed class RecordingTransport : IAuthMailTransport
+    {
+        public List<MimeKit.MimeMessage> Sent { get; } = new();
+        public Task SendAsync(MimeKit.MimeMessage message, CancellationToken ct) { Sent.Add(message); return Task.CompletedTask; }
+    }
+
+    [Test]
+    public async Task Request_KnownUser_WithSmtpSender_DeliversTheResetLinkToTheUsersInbox()
+    {
+        // End to end through the real sender (fake transport — nothing leaves the process): the emailed link
+        // carries the plaintext token whose HMAC is the stored row, so following it can confirm the reset.
+        var transport = new RecordingTransport();
+        var opts = new AuthResetOptions { PublicBaseUrl = "https://app.example.com", ResetPath = "/account/reset", TokenTtlMinutes = 15, MaxEmailsPerHour = 3 };
+        var smtp = new SmtpAuthEmailSender(transport,
+            new AuthEmailSettings("smtp.example.com", 587, "mailer@example.com", "pw", "mailer@example.com"),
+            Build.Opt(opts), Microsoft.Extensions.Logging.Abstractions.NullLogger<SmtpAuthEmailSender>.Instance, "Ideas");
+        await smtp.StartAsync(CancellationToken.None);
+
+        var db = TestAuthDbContext.NewInMemory();
+        var hasher = Build.Hasher();
+        var clock = FixedClock.At(new DateTimeOffset(2026, 6, 6, 12, 0, 0, TimeSpan.Zero));
+        var svc = new PasswordResetService(new UserStore(db), db, hasher, new FakePasswordPolicy(), new FakeAuthSecrets(),
+            smtp, new FakeAuditWriter(), Build.Opt(opts), clock);
+        var h = new Harness { Db = db, Svc = svc, Email = new FakeEmailSender(), Audit = new FakeAuditWriter(), Hasher = hasher, Clock = clock };
+        await SeedUser(h);
+
+        await svc.RequestAsync("alice", "203.0.113.7", "agent");
+        await smtp.StopAsync(CancellationToken.None);
+
+        var mail = transport.Sent.Single();
+        Assert.That(mail.To.Mailboxes.Single().Address, Is.EqualTo("alice@example.com"));
+        Assert.That(mail.TextBody, Does.Contain("https://app.example.com/account/reset?token="));
+        var token = Uri.UnescapeDataString(System.Text.RegularExpressions.Regex.Match(mail.TextBody, @"\?token=(\S+)").Groups[1].Value);
+        var result = await svc.ConfirmAsync(token, "Brand-New-Passphrase-42");
+        Assert.That(result.Ok, Is.True, result.Error);
+    }
+
     [Test]
     public async Task Request_UserWithoutEmail_DoesNotCreateTokenOrEmail()
     {

@@ -4,8 +4,8 @@ MindAttic.Authentication follows the **MindAttic ecosystem whole-number / major-
 
 - The package & assembly version is a **single increasing major**: `1.0.0`, then `2.0.0`, then `3.0.0`, …
   **Minor and patch are always `0`.** There is no `1.1.0`, `1.0.1`, or SemVer-style minor/patch.
-- The current version is `4.0.0` (`<Version>` in `src/MindAttic.Authentication/MindAttic.Authentication.csproj`).
-- Consumers exact-pin: `<PackageReference Include="MindAttic.Authentication" Version="4.0.0" />`.
+- The current version is `5.0.0` (`<Version>` in `src/MindAttic.Authentication/MindAttic.Authentication.csproj`).
+- Consumers exact-pin: `<PackageReference Include="MindAttic.Authentication" Version="5.0.0" />`.
 
 ## What a major bump means here
 

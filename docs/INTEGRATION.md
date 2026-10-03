@@ -17,8 +17,8 @@ middleware + endpoints, (4) adding login/MFA/account pages, and (5) provisioning
 <add key="LocalNuGet" value="C:\LocalNuGet" />
 ```
 ```xml
-<PackageReference Include="MindAttic.Authentication" Version="4.0.0" />
-<PackageReference Include="MindAttic.Vault" Version="1.0.0" />   <!-- if the host fills config through Vault -->
+<PackageReference Include="MindAttic.Authentication" Version="5.0.0" />
+<PackageReference Include="MindAttic.Vault" Version="5.0.0" />   <!-- only if the host fills config through Vault; the library itself does not depend on it -->
 ```
 
 ## 2. Implement `IAuthDataContext` on your DbContext
@@ -110,10 +110,23 @@ Add `/mfa` (`<MaMfaChallenge/>`), `/account/change-password` (`<MaChangePassword
 `/account/mfa/setup` (`<MaMfaSetup/>`, rendered `@rendermode InteractiveServer`). Protect admin pages with
 `@attribute [Authorize(Policy = MaPolicies.Admin)]` (role **+** MFA).
 
-## 5. Email channel (Windows hosts)
+## 5. Email channel
 
-Password-reset/security-alert emails go through an `IAuthEmailSender` the host registers — on Windows via a
-`MindAttic.Psst`-backed adapter (email channel; SMS off). See [`OPERATIONS.md`](OPERATIONS.md).
+`AddMindAtticAuthentication` registers auth email for you; there is no code to write. It reads SMTP settings
+in the MindAttic.Vault `Notifications` format (the same shape MindAttic.Psst uses):
+
+```
+MindAttic:Vault:Notifications:email:smtpHost / smtpPort / username / password / from
+MindAttic:Auth:Reset:PublicBaseUrl      e.g. https://ideas.mindattic.com  (reset links must be absolute)
+```
+
+- **Dev:** `%APPDATA%\MindAttic\Notifications\providers.json` — include `"Notifications"` in the
+  `AddMindAtticVaultFiles` bucket list if you pass one (it is in Vault's default list).
+- **Prod:** app settings `MindAttic__Vault__Notifications__email__smtpHost` (etc.), or Key Vault references.
+
+All five SMTP fields present ⇒ `SmtpAuthEmailSender` (queued, MailKit, TLS required). Anything less ⇒ the
+log-only `LoggingAuthEmailSender`, and a startup **warning** says email will not be delivered and names any
+missing field. Register your own `IAuthEmailSender` to override either. See [`OPERATIONS.md`](OPERATIONS.md#5-email-password-reset--security-alerts).
 
 ## 6. Provision secrets
 

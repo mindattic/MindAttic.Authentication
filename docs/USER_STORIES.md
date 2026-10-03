@@ -10,7 +10,7 @@ updated: 2026-10-03
 # MindAttic.Authentication — User Stories
 > ✅ done (shipped & tested) · 🟡 partial · ⬜ planned. Every ✅ cites its verifying test.
 > Personas: **U** = end user of a consuming app · **Admin** = elevated operator · **Host** = the app developer adopting the library · **Op** = the secrets/deployment operator.
-> Status reflects the 2026-10-03 run: 196/196 tests green ([BIBLE §6](BIBLE.md#AUTH-§6)).
+> Status reflects the 2026-10-03 run: 215/215 tests green ([BIBLE §6](BIBLE.md#AUTH-§6)).
 
 ## Epic A — Password storage
 - **AUTH-US-A1 ✅** As a Host, I can store passwords as Argon2id+pepper so a DB-only breach yields nothing crackable. *Given a password, When hashed, Then the result is a canonical argon2id PHC string with a random salt and verifies back.* *(verified by `Argon2idPasswordHasherTests.Hash_ThenVerify_Succeeds_AndDoesNotNeedRehashAtCurrentParams`, `Argon2idPasswordHasherTests.Hash_UsesRandomSalt_SoSamePasswordHashesDiffer`.)*
@@ -37,6 +37,7 @@ updated: 2026-10-03
 ## Epic E — Password policy, change & reset
 - **AUTH-US-E1 ✅** As a U, my password is rejected if too short/too long/blank per NIST policy. *(verified by `PasswordPolicyTests.TooShort_IsRejected`, `PasswordPolicyTests.TooLong_IsRejected`, `PasswordPolicyTests.Null_IsRejected`.)*
 - **AUTH-US-E2 ✅** As a U requesting a reset, an unknown user creates no token but still audits (enumeration-safe), and a known user gets a hashed token + emailed link. *(verified by `PasswordResetServiceTests.Request_UnknownUser_CreatesNoToken_ButStillAudits`, `PasswordResetServiceTests.Request_KnownUser_CreatesHashedToken_AndEmailsLink`, `PasswordResetServiceTests.Request_UserWithoutEmail_DoesNotCreateTokenOrEmail`.)*
+- **AUTH-US-E4 ✅** As a U requesting a reset, the link reaches my inbox when the host has configured SMTP (`MindAttic:Vault:Notifications:email`); the request never waits on or fails with the mail server, a failed send is retried then logged without the link or password, and with no SMTP configured the host is warned at startup that email will not be delivered. *(verified by `PasswordResetServiceTests.Request_KnownUser_WithSmtpSender_DeliversTheResetLinkToTheUsersInbox`, `SmtpAuthEmailSenderTests.PasswordReset_IsDeliveredWithLinkRecipientAndSender`, `SmtpAuthEmailSenderTests.Send_ReturnsImmediately_WithoutWaitingOnSmtp`, `SmtpAuthEmailSenderTests.TransientFailure_IsRetried_ThenDelivered`, `SmtpAuthEmailSenderTests.PermanentFailure_NeverThrowsToCaller_AndNeverLogsTheLinkOrPassword`, `SmtpAuthEmailSenderTests.RelativeResetLink_IsNotSent`, `SmtpAuthEmailSenderTests.Registration_SmtpConfigured_UsesSmtpSender_AndDeliversThroughTheTransport`, `SmtpAuthEmailSenderTests.Registration_NoSmtpConfigured_FallsBackToLogging_AndWarnsLoudlyAtStartup`, `SmtpAuthEmailSenderTests.Registration_PartialSmtp_FallsBackAndTheWarningNamesWhatIsMissing`, `SmtpAuthEmailSenderTests.Registration_HostSenderWins`.)*
 - **AUTH-US-E3 🟡** As a U, change-password requires my current password + fresh reauth and rotates my stamp. *`PasswordChangeService` is implemented and compiles; not yet covered by a dedicated unit test.*
 
 ## Epic F — Account administration
@@ -51,8 +52,7 @@ updated: 2026-10-03
 
 ## Priority backlog
 Dependency-ordered toward the headline goal (one hardened engine for every consuming app — Ideas, IdiotProof, Prose, Tutor):
-1. ⬜ **AUTH-US-E4** — Ship a real `IAuthEmailSender` (e.g. a MindAttic.Psst email adapter) so reset links reach users; today every consumer runs the log-only `LoggingAuthEmailSender`. (depends on E2)
-2. ⬜ **AUTH-US-G5** — Add a fail-closed `IStartupFilter` that asserts middleware order, with an integration test. (hardens G2)
-3. ⬜ **AUTH-US-F3** — Provisioning CLI emitting CSPRNG pepper/KEK/reset-key (see [RFC 0001](rfc/0001-provisioning-cli.md)). (depends on B1/B2)
-4. ⬜ **AUTH-US-F4** — Signed, deterministic NuGet pack with committed `packages.lock.json`.
-5. ⬜ **AUTH-US-D4** — WebAuthn/FIDO2 (additive, a future major) to close the accepted AITM residual.
+1. ⬜ **AUTH-US-G5** — Add a fail-closed `IStartupFilter` that asserts middleware order, with an integration test. (hardens G2)
+2. ⬜ **AUTH-US-F3** — Provisioning CLI emitting CSPRNG pepper/KEK/reset-key (see [RFC 0001](rfc/0001-provisioning-cli.md)). (depends on B1/B2)
+3. ⬜ **AUTH-US-F4** — Signed, deterministic NuGet pack with committed `packages.lock.json`.
+4. ⬜ **AUTH-US-D4** — WebAuthn/FIDO2 (additive, a future major) to close the accepted AITM residual.

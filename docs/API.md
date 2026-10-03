@@ -163,6 +163,25 @@ public readonly record struct PasswordChangeResult(bool Ok, string? Error);
 public interface IPasswordChangeService { Task<PasswordChangeResult> ChangeAsync(Guid userId, string currentPassword, string newPassword, CancellationToken ct = default); }
 
 public sealed class AuthBootstrapper { Task SeedAdminAsync(string adminUserName = "admin", CancellationToken ct = default); }
+
+// Auth email. AddMindAtticAuthentication picks SmtpAuthEmailSender when AuthEmailSettings load, else LoggingAuthEmailSender.
+public interface IAuthEmailSender {
+    Task SendPasswordResetAsync(string toEmail, string resetLink, CancellationToken ct = default);
+    Task SendSecurityAlertAsync(string toEmail, string subject, string body, CancellationToken ct = default);
+}
+public sealed class LoggingAuthEmailSender : IAuthEmailSender;                    // log-only fallback
+public sealed record AuthEmailSettings(string SmtpHost, int SmtpPort, string Username, string Password, string From) {
+    public const string SectionPath = "MindAttic:Vault:Notifications:email";
+    public static AuthEmailSettings? Load(IConfiguration configuration, out IReadOnlyList<string> problems);
+}
+public sealed record AuthEmailStatus(AuthEmailSettings? Settings, IReadOnlyList<string> Problems);
+public interface IAuthMailTransport { Task SendAsync(MimeMessage message, CancellationToken ct); }   // test seam
+public sealed class MailKitAuthMailTransport(AuthEmailSettings settings) : IAuthMailTransport;     // 465 = TLS, else STARTTLS
+public sealed class SmtpAuthEmailSender : BackgroundService, IAuthEmailSender {   // queued; 3 attempts; never throws to caller
+    public const int QueueCapacity = 256; public const int MaxAttempts = 3;
+    public TimeSpan RetryDelay { get; init; }
+}
+public sealed class AuthEmailStartup : IHostedService;   // starts the SMTP queue; warns when mail will not be delivered
 ```
 
 ## 8. Web wiring — `MindAttic.Authentication.Web`
@@ -171,6 +190,7 @@ public sealed class AuthBootstrapper { Task SeedAdminAsync(string adminUserName 
 public static IServiceCollection AddMindAtticAuthentication<TContext>(
     this IServiceCollection services, IConfiguration config, Action<MindAtticAuthOptions> configure)
     where TContext : DbContext, IAuthDataContext;
+public static IServiceCollection AddMindAtticAuthEmail(this IServiceCollection services, IConfiguration config, string appName);  // called by the above; TryAdd throughout
 
 public static IApplicationBuilder UseMindAtticAuthentication(this IApplicationBuilder app);  // authn→authz→scoped CSP
 public static IEndpointRouteBuilder MapMindAtticAuthEndpoints(this IEndpointRouteBuilder endpoints);

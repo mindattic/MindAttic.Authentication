@@ -2,7 +2,7 @@
 
 Shared authentication for MindAttic's ASP.NET Core apps as one Razor Class Library: Argon2id passwords, TOTP MFA, secure reset and audit logging, built to OWASP ASVS L2 and NIST SP 800-63B AAL2.
 
-![C#](https://img.shields.io/badge/language-C%23-239120) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Razor Class Library](https://img.shields.io/badge/package-Razor%20Class%20Library-5C2D91) ![Version](https://img.shields.io/badge/version-4.0.0-blue) ![Tests](https://img.shields.io/badge/tests-196%20passing-brightgreen) ![Argon2id](https://img.shields.io/badge/hashing-Argon2id-555555)
+![C#](https://img.shields.io/badge/language-C%23-239120) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Razor Class Library](https://img.shields.io/badge/package-Razor%20Class%20Library-5C2D91) ![Version](https://img.shields.io/badge/version-5.0.0-blue) ![Tests](https://img.shields.io/badge/tests-215%20passing-brightgreen) ![Argon2id](https://img.shields.io/badge/hashing-Argon2id-555555)
 
 ```text
                        consuming app (Ideas / Prose / Tutor / IdiotProof)
@@ -79,6 +79,10 @@ The design target, as stated in [docs/BIBLE.md](docs/BIBLE.md): OWASP ASVS L2 (L
 
 `IAuthSecrets` and `ConfigAuthSecrets` read `MindAttic:Vault:Security:<name>` from `IConfiguration` and throw rather than return empty on a missing or blank value. Since 4.0.0 a lookup also matches names that Azure App Service on Linux rewrites when it turns settings into environment variables (for example a dot or hyphen removed): an exact match first, then a letters-and-digits comparison, and two keys that differ only by punctuation raise an ambiguity error instead of a guess.
 
+### Auth email
+
+`AddMindAtticAuthentication` registers auth email delivery. When `MindAttic:Vault:Notifications:email` (the MindAttic.Vault `Notifications` format: `smtpHost`, `smtpPort`, `username`, `password`, `from`) is complete, `SmtpAuthEmailSender` delivers reset links and security alerts over SMTP with MailKit: TLS is required (465 implicit, otherwise STARTTLS), sends are queued so a reset request never waits on the mail server, each message gets three attempts, and logs never carry the link or the password. Otherwise the log-only `LoggingAuthEmailSender` stays in place and a startup warning says email will not be delivered, naming any missing field. A reset link must be absolute, so `MindAttic:Auth:Reset:PublicBaseUrl` has to be set too. A host's own `IAuthEmailSender` overrides both.
+
 ### Packaging
 
 - Endpoints, never components, own `SignInAsync` and `SignOutAsync`; every POST is antiforgery-protected.
@@ -90,7 +94,7 @@ The design target, as stated in [docs/BIBLE.md](docs/BIBLE.md): OWASP ASVS L2 (L
 Reference the package (consumers pin an exact whole-number version):
 
 ```xml
-<PackageReference Include="MindAttic.Authentication" Version="4.0.0" />
+<PackageReference Include="MindAttic.Authentication" Version="5.0.0" />
 ```
 
 Wire it up in `Program.cs`:
@@ -204,7 +208,7 @@ Options bind from `IConfiguration`. Every key, secret and default, with an examp
 | `MfaOptions` | `MindAttic:Auth:Mfa` | TOTP issuer, digits, period and window; recovery-code count and size; `RequireForAdmin`. |
 | `AuthResetOptions` | `MindAttic:Auth:Reset` | Public base URL, reset path, token TTL (15 min), emails-per-hour cap (3). |
 
-Secrets are read from `MindAttic:Vault:Security:<name>` and the library fails closed when one is missing. How to provision and rotate them is in [docs/OPERATIONS.md](docs/OPERATIONS.md).
+Secrets are read from `MindAttic:Vault:Security:<name>` and the library fails closed when one is missing. Optional SMTP settings for auth email are read from `MindAttic:Vault:Notifications:email`. How to provision and rotate them is in [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Project layout
 
@@ -222,7 +226,8 @@ MindAttic.Authentication/
 │  │                 AuthSessionOptions, MfaOptions, PasswordPolicyDescriptor
 │  ├─ Secrets/       IAuthSecrets, ConfigAuthSecrets (fail-closed config-based secret access)
 │  ├─ Services/      AccountLockoutService, AuthAuditWriter, AuthBootstrapper,
-│  │                 AuthenticationService, IAuthEmailSender (+ LoggingAuthEmailSender stub),
+│  │                 AuthenticationService, IAuthEmailSender, SmtpAuthEmailSender,
+│  │                 AuthEmailSettings, AuthEmailStartup, LoggingAuthEmailSender (fallback),
 │  │                 MfaEnrollmentService, PasswordChangeService, PasswordPolicy,
 │  │                 PasswordResetService, TotpService, UserAdminService, UserStore
 │  ├─ Web/           MindAtticAuthExtensions (DI), MindAtticAuthAppExtensions (middleware),
@@ -231,7 +236,6 @@ MindAttic.Authentication/
 │  └─ MaClaims.cs    claim type, role, policy and scheme-name constants
 ├─ tests/MindAttic.Authentication.Tests/   NUnit 4 suite
 ├─ tools/            codex.ps1 (Codex doctor/digest), build-readme.ps1 (README.htm)
-├─ pack/, pack-out/  stale local nupkg snapshots (1.0.0, 2.0.0) from earlier manual packs
 ├─ docs/             Codex canon + detail docs (see Documentation)
 └─ MindAttic.Authentication.sln / .slnx
 ```
@@ -256,19 +260,18 @@ A release is not done until every subscriber's `PackageReference` is bumped and 
 
 ## Versioning
 
-Whole-number, major-only: `1.0.0`, then `2.0.0`, then `3.0.0`, and so on; minor and patch are always `0`. The current `<Version>` in the csproj is `4.0.0`. Consumers exact-pin. Crypto agility (Argon2 cost, pepper rotation) is in-band through configuration and `NeedsRehash`, not a version bump. Full policy: [docs/VERSIONING.md](docs/VERSIONING.md).
+Whole-number, major-only: `1.0.0`, then `2.0.0`, then `3.0.0`, and so on; minor and patch are always `0`. The current `<Version>` in the csproj is `5.0.0`. Consumers exact-pin. Crypto agility (Argon2 cost, pepper rotation) is in-band through configuration and `NeedsRehash`, not a version bump. Full policy: [docs/VERSIONING.md](docs/VERSIONING.md).
 
 ## Status
 
 Checked against this working tree on 2026-10-03:
 
-- `dotnet test MindAttic.Authentication.sln -c Debug`: 196 of 196 tests pass (NUnit 4, net10.0).
-- Package version `4.0.0`. The 4.0.0 change is the Linux App Service secret-name matching described under Secrets.
-- Four sibling apps use the package, at different versions: MindAttic.Ideas at 4.0.0, IdiotProof at 3.0.0, Prose and Tutor at 2.0.0 (see [docs/BIBLE.md](docs/BIBLE.md) section 4.1a). Bumping them is each app's own work.
-- No consumer registers its own `IAuthEmailSender`, so reset emails currently go to the log-only default sender.
-- The `MindAttic.Vault 1.0.0` package reference is declared, but no code in `src/` uses it: `ConfigAuthSecrets` resolves every secret through plain `IConfiguration` by naming convention. A host wires its own Vault-backed (or any) configuration provider that fills that section.
+- `dotnet test MindAttic.Authentication.slnx -c Debug`: 215 of 215 tests pass (NUnit 4, net10.0).
+- Package version `5.0.0`: SMTP auth email (see Auth email) and no `MindAttic.Vault` package dependency.
+- Four sibling apps use the package, all at 5.0.0: MindAttic.Ideas, IdiotProof, Prose and Tutor (see [docs/BIBLE.md](docs/BIBLE.md) section 4.1a).
+- Each consumer gets SMTP auth email once its `Notifications` SMTP settings are configured. None sets `PublicBaseUrl` or hosts a page at `ResetPath` yet, so no consumer sends reset mail, and nothing in the library calls `SendSecurityAlertAsync`.
+- There is no `MindAttic.Vault` package reference: secrets and SMTP settings resolve through plain `IConfiguration` by naming convention, and a host wires its own Vault-backed (or any) configuration provider that fills those sections.
 - Compiles and is exercised indirectly, but has no dedicated unit test of its own: the `AuthenticationService` login and MFA-confirm pipeline, `MfaEnrollmentService`, `PasswordChangeService`, `AuthBootstrapper`, the Web DI, middleware and endpoint wiring, the revalidating auth-state provider, and the seven Razor components. See [`docs/USER_STORIES.md`](docs/USER%5FSTORIES.md).
-- The `pack/` and `pack-out/` folders hold stale 1.0.0 and 2.0.0 nupkgs; nothing regenerates them.
 
 ## Roadmap
 

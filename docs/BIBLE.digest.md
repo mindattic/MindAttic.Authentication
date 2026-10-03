@@ -31,4 +31,4 @@ This project **inherits all org-wide laws** in [`MindAttic.HouseRules.md`](../..
 - **Trust boundary** — an app's isolated auth domain; a cookie/ticket valid in one is invalid in another.
 
 ## Status index (from docs/USER_STORIES.md)
-- done: 19 | partial: 7 | planned: 6
+- done: 20 | partial: 7 | planned: 5
