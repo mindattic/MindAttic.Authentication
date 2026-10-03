@@ -4,11 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MindAttic.Authentication</title>
-<meta name="description" content="Maximally-secure, Vault-fed authentication for the MindAttic ecosystem — shipped as a single Razor
-Class Library (RCL) so MindAttic.Ideas, Prose, and Tutor authenticate identically instead of each
-rolling its own. Des...">
+<meta name="description" content="Shared authentication for MindAttic's ASP.NET Core apps as one Razor Class Library: Argon2id passwords, TOTP MFA, secure reset and audit logging, built to OWASP ASVS L2 and NIST SP 800-63B AAL2.">
 <meta name="generator" content="MindAttic Codex build-readme.ps1">
-<meta name="generated" content="2026-08-14">
+<meta name="generated" content="2026-10-03">
 <style>:root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;
   --border:#30363d;
@@ -113,87 +111,9 @@ pre:hover .cpbtn{opacity:1}
   </nav>
   <main id="content">
 <h1 id="mindatticauthentication">MindAttic.Authentication</h1>
-<p>Maximally-secure, Vault-fed authentication for the MindAttic ecosystem — shipped as a single Razor Class Library (RCL) so MindAttic.Ideas, Prose, and Tutor authenticate <strong>identically</strong> instead of each rolling its own. Designed to OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker <strong>and</strong> a future full database breach.</p>
-<blockquote><p><strong>Status:</strong> the security-logic core, the EF model, the Web DI/middleware/endpoint wiring, and all seven Razor components <strong>build clean and pass their local test suite</strong> (184/184, NUnit 4 — verified 2026-08-14, see <a href="#current-status">Current status</a>). Nothing has adopted this library yet: the provisioning CLI and the three planned app adoptions (Prose → Ideas → Tutor) are still ⬜ not started. Read this section honestly before assuming any given feature is production-proven — "compiles and is unit-tested in isolation" is not the same claim as "battle-tested behind a real login form."</p></blockquote>
-<table><thead><tr>
-<th></th>
-<th></th>
-</tr></thead><tbody>
-<tr>
-<td><strong>Package</strong></td>
-<td><code>MindAttic.Authentication</code>, current <code>&lt;Version&gt;</code> = <strong><code>3.0.0</code></strong> (whole-number/major-only, see <a href="#versioning">Versioning</a>)</td>
-</tr>
-<tr>
-<td><strong>Target</strong></td>
-<td><code>net10.0</code>, Razor Class Library (<code>Microsoft.NET.Sdk.Razor</code>)</td>
-</tr>
-<tr>
-<td><strong>Only hard dependency declared in the csproj</strong></td>
-<td><code>MindAttic.Vault 1.0.0</code> — see the honest caveat in <a href="#current-status">Current status</a>: no C# in this library actually calls a Vault API</td>
-</tr>
-<tr>
-<td><strong>Crypto</strong></td>
-<td>Argon2id via Konscious (RFC 9106); BCrypt.Net-Next for legacy verify-then-upgrade</td>
-</tr>
-<tr>
-<td><strong>Data</strong></td>
-<td>EF Core (<code>Microsoft.EntityFrameworkCore.Relational</code>) — the library owns an isolated <code>auth</code> schema, the host owns the <code>DbContext</code>/connection</td>
-</tr>
-<tr>
-<td><strong>Canon</strong></td>
-<td><a href="docs/README.md"><code>docs/</code></a> — start with <a href="docs/BIBLE.md"><code>docs/BIBLE.md</code></a> for architecture/laws, this file for build/run</td>
-</tr>
-</tbody></table>
-<hr>
-<h2 id="contents">Contents</h2>
-<ul>
-<li><a href="#why-this-exists">Why this exists</a></li>
-<li><a href="#what-it-is--is-not">What it is / is not</a></li>
-<li><a href="#architecture">Architecture</a></li>
-<li><a href="#integration-pattern">Integration pattern</a></li>
-<li><a href="#public-surface-at-a-glance">Public surface at a glance</a></li>
-<li><a href="#security-design-summary">Security design (summary)</a></li>
-<li><a href="#directory-layout">Directory layout</a></li>
-<li><a href="#build-test-and-pack">Build, test, and pack</a></li>
-<li><a href="#documentation-map">Documentation map</a></li>
-<li><a href="#current-status">Current status</a></li>
-<li><a href="#versioning">Versioning</a></li>
-<li><a href="#ratified-decisions--accepted-residual-risks">Ratified decisions &amp; accepted residual risks</a></li>
-</ul>
-<hr>
-<h2 id="why-this-exists">Why this exists</h2>
-<p>A security audit of the three apps this library is meant to replace found divergent, partly <strong>critical</strong>, hand-rolled auth:</p>
-<table><thead><tr>
-<th>App</th>
-<th>Verdict</th>
-<th>Worst issues</th>
-</tr></thead><tbody>
-<tr>
-<td><strong>Tutor</strong></td>
-<td>🔴 critically broken</td>
-<td>plain <strong>SHA-256, no salt</strong>; hardcoded <code>aaa</code> admin; no sessions / lockout / MFA</td>
-</tr>
-<tr>
-<td><strong>Prose</strong></td>
-<td>🟡 soft</td>
-<td>BCrypt ✓ but hardcoded default password, a <strong>dev-auto-login</strong> middleware that can fire in prod, volatile in-memory lockout, 30-day sliding sessions, no MFA</td>
-</tr>
-<tr>
-<td><strong>Ideas</strong></td>
-<td>🟡 minimal</td>
-<td>BCrypt ✓ but SecurityStamp revalidation unwired, no lockout/MFA yet</td>
-</tr>
-</tbody></table>
-<p>Common gaps across all three: no MFA, no audit log, no breached-password check, secrets not Vault-backed, and three separate implementations to keep correct. This library is meant to replace all three with one hardened engine — though as of today none of the three has adopted it yet (see <a href="#current-status">Current status</a>).</p>
-<p>The design was produced by an adversarial review ("Legion") — seven independent attack lenses (crypto, session, lockout/enumeration, MFA, secrets/Vault, policy/recovery, Blazor/packaging) → a synthesized spec → a red-team pass. The full rationale, control-by-control OWASP/NIST mapping, and residual-risk register live in <a href="docs/SECURITY_SPEC.md"><code>docs/SECURITY_SPEC.md</code></a>.</p>
-<h2 id="what-it-is-is-not">What it is / is not</h2>
-<p>See <a href="docs/BIBLE.md#AUTH-§1"><code>docs/BIBLE.md</code> §1–§3</a> for the canonical statement. In short:</p>
-<ul>
-<li><strong>Is:</strong> one hardened auth engine consumed as a NuGet <code>PackageReference</code>, owning its own <code>auth</code> EF schema, its own cookie/DP scheme, and presentation-only Razor components. Endpoints — never   components — perform <code>SignInAsync</code>/<code>SignOutAsync</code>.</li>
-<li><strong>Is not:</strong> a cross-app SSO/identity provider (each app is a separate trust boundary; no shared session across apps), a secrets store (it <em>consumes</em> secrets via Vault-shaped configuration, see   the caveat below), WebAuthn/FIDO2 (deferred to a future major), or semver (whole-number major bumps   only, per house rules).</li>
-</ul>
-<h2 id="architecture">Architecture</h2>
-<pre><code>                       consuming app (Ideas / Prose / Tutor)
+<p>Shared authentication for MindAttic's ASP.NET Core apps as one Razor Class Library: Argon2id passwords, TOTP MFA, secure reset and audit logging, built to OWASP ASVS L2 and NIST SP 800-63B AAL2.</p>
+<p><img src="https://img.shields.io/badge/language-C%23-239120" alt="C#"> <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET"> <img src="https://img.shields.io/badge/package-Razor%20Class%20Library-5C2D91" alt="Razor Class Library"> <img src="https://img.shields.io/badge/version-4.0.0-blue" alt="Version"> <img src="https://img.shields.io/badge/tests-196%20passing-brightgreen" alt="Tests"> <img src="https://img.shields.io/badge/hashing-Argon2id-555555" alt="Argon2id"></p>
+<pre><code class="language-text">                       consuming app (Ideas / Prose / Tutor / ...)
                                    |  PackageReference (NuGet)
    +-------------------------------v--------------------------------------+
    |                    MindAttic.Authentication (RCL, net10.0)           |
@@ -212,16 +132,90 @@ pre:hover .cpbtn{opacity:1}
    +-----------|---------------------|------------------------|----------+
                |                     |                        |
         Konscious Argon2       IConfiguration           host EF Core DbContext
-        BCrypt (legacy)   ("MindAttic:Vault:Security:*")  (owns `auth` schema)</code></pre>
-<p>The host owns its own <code>DbContext</code> and connection string; this library never opens a connection itself — it configures the <code>auth</code> schema onto the host's model via <code>ApplyMindAtticAuthConfiguration()</code> and operates through the host-implemented <code>IAuthDataContext</code> seam.</p>
-<h2 id="integration-pattern">Integration pattern</h2>
-<p>This is the shape the library is built for (verified against the actual <code>Web/</code> source in this repo, <code>net10.0</code>). No app has wired this up yet — see <a href="#current-status">Current status</a> — so treat this as "what the API supports today," not "what's running in production."</p>
-<pre><code class="language-csharp">// Program.cs
-builder.Services.AddMindAtticAuthentication&lt;AppDbContext&gt;(builder.Configuration, o =&gt;
+        BCrypt (legacy)   ("MindAttic:Vault:Security:*")  (owns the auth schema)</code></pre>
+<p>This is a library, so there is no app to screenshot. Install it as the NuGet package <code>MindAttic.Authentication</code> from the MindAttic local feed (see <a href="#building-and-testing">Building and testing</a>).</p>
+<h2 id="why">Why</h2>
+<ul>
+<li>Stop hand-rolling login in every app: one engine gives Ideas, Prose and Tutor the same hardened sign-in, MFA, reset and audit trail.</li>
+<li>Survive a database breach: passwords are Argon2id over a peppered HMAC, so a stolen table alone is not enough to crack them.</li>
+<li>Give attackers nothing to enumerate: login, MFA and reset answer with the same content and timing whether or not the account exists.</li>
+<li>Make admins prove it twice: the Admin role is forced through TOTP enrollment before it reaches protected pages.</li>
+<li>Upgrade old users silently: legacy bcrypt and SHA-256 hashes verify once, then re-hash to Argon2id on the next login.</li>
+<li>Fail closed, not open: a missing secret or missing production key-ring wiring stops startup instead of running insecurely.</li>
+</ul>
+<p>A security audit of the apps this library replaces found divergent, partly critical, hand-rolled auth:</p>
+<table><thead><tr>
+<th>App</th>
+<th>Verdict</th>
+<th>Worst issues</th>
+</tr></thead><tbody>
+<tr>
+<td>Tutor</td>
+<td>critically broken</td>
+<td>plain SHA-256 with no salt; hardcoded admin; no sessions, lockout or MFA</td>
+</tr>
+<tr>
+<td>Prose</td>
+<td>soft</td>
+<td>BCrypt, but a hardcoded default password, a dev-auto-login middleware that could fire in production, volatile in-memory lockout, 30-day sliding sessions, no MFA</td>
+</tr>
+<tr>
+<td>Ideas</td>
+<td>minimal</td>
+<td>BCrypt, but SecurityStamp revalidation unwired, no lockout or MFA</td>
+</tr>
+</tbody></table>
+<p>Common gaps across all three: no MFA, no audit log, no breached-password check, secrets not Vault-backed, and three separate implementations to keep correct. The design came from an adversarial review: seven independent attack lenses (crypto, session, lockout and enumeration, MFA, secrets and Vault, policy and recovery, Blazor and packaging), a synthesized spec, then a red-team pass. The full rationale, control-by-control OWASP and NIST mapping and residual-risk register are in <a href="docs/SECURITY%5FSPEC.md"><code>docs/SECURITY_SPEC.md</code></a>.</p>
+<h2 id="features">Features</h2>
+<p>The design target, as stated in <a href="docs/BIBLE.md">docs/BIBLE.md</a>: OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker and a future full database breach. Verified-by-test claims are cited story by story in <a href="docs/USER%5FSTORIES.md"><code>docs/USER_STORIES.md</code></a>.</p>
+<h3 id="password-storage">Password storage</h3>
+<ul>
+<li>Argon2id (Konscious, RFC 9106) with m=64 MiB, t=3, p=4, a 16-byte salt and a 32-byte hash, over <code>HMAC-SHA256(pepper, NFKC-UTF8(password))</code>.</li>
+<li>The pepper is resolved by key id (<code>pepper.v1</code>, <code>v2</code>, ...) so it can rotate; hashes are self-describing PHC strings, so <code>NeedsRehash</code> is deterministic.</li>
+<li>Legacy bcrypt and SHA-256 hashes verify with the original algorithm once, then silently re-hash to Argon2id plus pepper.</li>
+<li>A precomputed decoy Argon2id verify runs for absent or inactive accounts so timing does not reveal existence; a <code>SemaphoreSlim</code> gate caps concurrent hashing (peak RAM is N x 64 MiB).</li>
+</ul>
+<h3 id="sessions">Sessions</h3>
+<ul>
+<li><code>__Host-MindAttic.Auth</code> cookie: HttpOnly, <code>Secure=Always</code>, <code>SameSite=Lax</code>, 8 h absolute and 30 min idle, no infinite sliding.</li>
+<li><code>SecurityStamp</code> is revalidated every minute on both the HTTP path (<code>CookieValidation</code>) and the Blazor circuit (<code>MaRevalidatingAuthenticationStateProvider</code>).</li>
+<li><code>AuthSession</code> rows enable per-session revoke, and global logout via stamp rotation.</li>
+<li>ASP.NET Data Protection uses a per-<code>AppName</code> key ring; production wiring is fail-closed (startup throws if <code>ConfigureDataProtection</code> is not supplied).</li>
+</ul>
+<h3 id="brute-force-and-enumeration">Brute force and enumeration</h3>
+<ul>
+<li><code>AuthLoginThrottle</code> is a persistent, database-backed exponential backoff keyed per account and per IP. It survives restarts and is shared across instances, with no in-memory state.</li>
+<li>Login, MFA and reset responses are uniform in content and timing (<code>TimingFloor</code>) across every outcome.</li>
+</ul>
+<h3 id="mfa">MFA</h3>
+<ul>
+<li>TOTP (RFC 6238: HMAC-SHA1, 6 digits, 30 s, plus or minus one step), replay-guarded via <code>LastTotpStepUsed</code>, with verify-before-enable enrollment.</li>
+<li>Single-use recovery codes, stored only as Argon2id plus pepper hashes.</li>
+<li><code>MfaOptions.RequireForAdmin</code> (default <code>true</code>) forces the <code>Admin</code> role through enrollment; the <code>ma:admin</code> policy requires <code>amr=mfa</code>.</li>
+</ul>
+<h3 id="password-policy-and-reset">Password policy and reset</h3>
+<ul>
+<li>NIST-aligned: at least 12 characters, up to 128, all Unicode, no composition rules, no forced rotation.</li>
+<li>HIBP k-anonymity breach check, fail-open with an audited skip on outage. Password history prevents reuse.</li>
+<li>Reset tokens are single-use, live at most 15 minutes, are stored only as an HMAC-SHA256 hash and never sign the user in automatically.</li>
+</ul>
+<h3 id="secrets">Secrets</h3>
+<p><code>IAuthSecrets</code> and <code>ConfigAuthSecrets</code> read <code>MindAttic:Vault:Security:&lt;name&gt;</code> from <code>IConfiguration</code> and throw rather than return empty on a missing or blank value. Since 4.0.0 a lookup also matches names that Azure App Service on Linux rewrites when it turns settings into environment variables (for example a dot or hyphen removed): an exact match first, then a letters-and-digits comparison, and two keys that differ only by punctuation raise an ambiguity error instead of a guess.</p>
+<h3 id="packaging">Packaging</h3>
+<ul>
+<li>Endpoints, never components, own <code>SignInAsync</code> and <code>SignOutAsync</code>; every POST is antiforgery-protected.</li>
+<li>A scoped CSP nonce applies only to the auth surface, so it never clobbers the host app's own CSP.</li>
+<li><code>#if MA_DEV_AUTH</code> gates the dev-only localhost auth bypass; the symbol is defined only under <code>Configuration == 'Debug'</code>, so it compiles out of Release builds entirely.</li>
+</ul>
+<h2 id="quick-start">Quick start</h2>
+<p>Reference the package (consumers pin an exact whole-number version):</p>
+<pre><code class="language-xml">&lt;PackageReference Include="MindAttic.Authentication" Version="4.0.0" /&gt;</code></pre>
+<p>Wire it up in <code>Program.cs</code>:</p>
+<pre><code class="language-csharp">builder.Services.AddMindAtticAuthentication&lt;AppDbContext&gt;(builder.Configuration, o =&gt;
 {
     o.AppName = "Ideas";                       // per-app Data Protection trust boundary
     o.IsProduction = builder.Environment.IsProduction();
-    o.ConfigureDataProtection = dp =&gt; dp        // REQUIRED in prod — fail-closed if omitted
+    o.ConfigureDataProtection = dp =&gt; dp        // REQUIRED in prod: fail-closed if omitted
         .PersistKeysToAzureBlobStorage(blobUri, credential)
         .ProtectKeysWithAzureKeyVault(keyVaultKeyUri, credential);
     o.ConfigureAdditionalPolicies = ab =&gt;
@@ -234,8 +228,8 @@ app.UseForwardedHeaders();                      // BEFORE UseMindAtticAuthentica
 app.UseMindAtticAuthentication();               // authn -&gt; [dev bypass, Debug-only] -&gt; authz -&gt; forced-step -&gt; CSP nonce
 app.MapMindAtticAuthEndpoints(group =&gt;
     group.RequireRateLimiting("auth"));         // /_ma-auth/login, /mfa-challenge, /logout, /change-password, /reset/*</code></pre>
-<pre><code class="language-csharp">// AppDbContext.cs — implement the data seam, then apply the owned schema
-public class AppDbContext : DbContext, IAuthDataContext
+<p>Implement the data seam on your own <code>DbContext</code> and apply the owned schema:</p>
+<pre><code class="language-csharp">public class AppDbContext : DbContext, IAuthDataContext
 {
     public DbSet&lt;AuthUser&gt; AuthUsers =&gt; Set&lt;AuthUser&gt;();
     public DbSet&lt;AuthUserMfa&gt; AuthUserMfa =&gt; Set&lt;AuthUserMfa&gt;();
@@ -247,8 +241,9 @@ public class AppDbContext : DbContext, IAuthDataContext
     public DbSet&lt;AuthPasswordResetToken&gt; AuthPasswordResetTokens =&gt; Set&lt;AuthPasswordResetToken&gt;();
 
     protected override void OnModelCreating(ModelBuilder b)
-        =&gt; b.ApplyMindAtticAuthConfiguration();   // owns the isolated `auth` schema; app runs its own migration
+        =&gt; b.ApplyMindAtticAuthConfiguration();   // owns the isolated auth schema; the app runs its own migration
 }</code></pre>
+<p>Drop the components into your pages:</p>
 <pre><code class="language-razor">@* /login *@
 &lt;MaLogin ReturnUrl="@ReturnUrl" Error="@(Request.Query["error"] == "1")" /&gt;
 
@@ -257,28 +252,34 @@ public class AppDbContext : DbContext, IAuthDataContext
 
 @* anywhere authenticated *@
 &lt;MaLogout Text="Sign out" /&gt;</code></pre>
-<p>Each app keeps its own <code>DbContext</code>/connection and brands the components through the host's own markup around them — the components themselves take only a small, typed parameter set (<code>ReturnUrl</code>, <code>Error</code>, <code>Text</code>, <code>Sent</code>, <code>Token</code> — see <a href="docs/API.md"><code>docs/API.md</code></a> for the exhaustive list per component). The three apps remain <strong>separate trust boundaries</strong>: <code>SetApplicationName</code> scopes Data Protection per <code>AppName</code>, so a cookie minted for one app cannot authenticate another.</p>
-<h2 id="public-surface-at-a-glance">Public surface at a glance</h2>
-<p>The full member-by-member reference is <a href="docs/API.md"><code>docs/API.md</code></a>; this is the shape of it.</p>
-<p><strong>Web wiring</strong> (<code>Web/</code>)</p>
+<p>Then provide the required secrets through your configuration provider under <code>MindAttic:Vault:Security</code> (see <a href="docs/CONFIGURATION.md">docs/CONFIGURATION.md</a>). The full step-by-step walkthrough, including email and user migration, is <a href="docs/INTEGRATION.md">docs/INTEGRATION.md</a>.</p>
+<p>Each app keeps its own <code>DbContext</code> and connection and brands the components through its own markup around them; the components take only a small typed parameter set (<code>ReturnUrl</code>, <code>Error</code>, <code>Text</code>, <code>Sent</code>, <code>Token</code>; see <a href="docs/API.md">docs/API.md</a>). Apps stay separate trust boundaries: <code>SetApplicationName</code> scopes Data Protection per <code>AppName</code>, so a cookie minted for one app cannot authenticate another.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>The host owns its <code>DbContext</code> and connection string; this library never opens a connection itself. It configures the <code>auth</code> schema onto the host's model via <code>ApplyMindAtticAuthConfiguration()</code> and works through the host-implemented <code>IAuthDataContext</code> seam.</p>
+<p>What it is: one hardened auth engine consumed as a NuGet <code>PackageReference</code>, owning its own <code>auth</code> EF schema, its own cookie and Data Protection scheme, and presentation-only Razor components.</p>
+<p>What it is not: a cross-app SSO or identity provider (no shared session across apps), a secrets store (it consumes secrets through configuration), WebAuthn or FIDO2 (deferred to a future major), or semver. The canonical statement is <a href="docs/BIBLE.md">docs/BIBLE.md</a>, sections 1 to 3.</p>
+<h2 id="api">API</h2>
+<p>The member-by-member reference is <a href="docs/API.md">docs/API.md</a>; this is its shape.</p>
+<h3 id="web-wiring">Web wiring</h3>
 <table><thead><tr>
 <th>Member</th>
 <th>Purpose</th>
 </tr></thead><tbody>
 <tr>
-<td><code>AddMindAtticAuthentication&lt;TContext&gt;(IServiceCollection, IConfiguration, Action&lt;MindAtticAuthOptions&gt;)</code></td>
-<td>Registers the full DI graph: options (floor-validated, fail-closed), crypto/secrets, per-request services, cookie + MFA-pending auth schemes, the <code>ma:admin</code> policy, Data Protection (per-app key ring), Blazor cascading auth state. <code>TContext : DbContext, IAuthDataContext</code>.</td>
+<td><code>AddMindAtticAuthentication&lt;TContext&gt;(services, configuration, configure)</code></td>
+<td>Registers the full DI graph: floor-validated, fail-closed options; crypto and secrets; per-request services; cookie and MFA-pending auth schemes; the <code>ma:admin</code> policy; per-app Data Protection key ring; Blazor cascading auth state. <code>TContext</code> is a <code>DbContext</code> that implements <code>IAuthDataContext</code>.</td>
 </tr>
 <tr>
-<td><code>UseMindAtticAuthentication(IApplicationBuilder)</code></td>
-<td>Orders <code>UseAuthentication</code> → (Debug-only dev bypass) → <code>UseAuthorization</code> → a forced-step redirect (must-enroll-MFA / must-change-password) → a scoped CSP nonce applied only to <code>/login</code>, <code>/mfa</code>, <code>/account</code>, <code>/_ma-auth</code>.</td>
+<td><code>UseMindAtticAuthentication(app)</code></td>
+<td>Orders <code>UseAuthentication</code>, the Debug-only dev bypass, <code>UseAuthorization</code>, a forced-step redirect (must enroll MFA or must change password), then a scoped CSP nonce applied only to <code>/login</code>, <code>/mfa</code>, <code>/account</code> and <code>/_ma-auth</code>.</td>
 </tr>
 <tr>
-<td><code>MapMindAtticAuthEndpoints(IEndpointRouteBuilder, Action&lt;RouteGroupBuilder&gt;? configureGroup = null)</code></td>
-<td>Maps the <code>/_ma-auth</code> group (below); <code>configureGroup</code> lets a host attach rate limiting.</td>
+<td><code>MapMindAtticAuthEndpoints(endpoints, configureGroup)</code></td>
+<td>Maps the <code>/_ma-auth</code> group below; the optional <code>configureGroup</code> lets a host attach rate limiting.</td>
 </tr>
 </tbody></table>
-<p><strong><code>/_ma-auth</code> endpoints</strong> (<code>Web/AuthEndpoints.cs</code>) — every POST validates antiforgery; login/MFA/reset paths run behind a uniform timing floor</p>
+<h3 id="endpoints">Endpoints</h3>
+<p>Every POST validates antiforgery; login, MFA and reset paths run behind a uniform timing floor (<code>Web/AuthEndpoints.cs</code>).</p>
 <table><thead><tr>
 <th>Route</th>
 <th>Method</th>
@@ -287,36 +288,40 @@ public class AppDbContext : DbContext, IAuthDataContext
 <tr>
 <td><code>/_ma-auth/login</code></td>
 <td>POST</td>
-<td>credential verify → decoy timing on failure → issues cookie or redirects to <code>/mfa</code></td>
+<td>Credential verify, decoy timing on failure, then issues the cookie or redirects to <code>/mfa</code>.</td>
 </tr>
 <tr>
 <td><code>/_ma-auth/mfa-challenge</code></td>
 <td>POST</td>
-<td>consumes the MFA-pending principal → TOTP or recovery code → issues the real cookie</td>
+<td>Consumes the MFA-pending principal, checks a TOTP or recovery code, issues the real cookie.</td>
 </tr>
 <tr>
 <td><code>/_ma-auth/logout</code></td>
 <td>POST</td>
-<td>revokes the current <code>AuthSession</code>, signs out</td>
+<td>Revokes the current <code>AuthSession</code> and signs out.</td>
 </tr>
 <tr>
 <td><code>/_ma-auth/change-password</code></td>
 <td>POST</td>
-<td><code>[RequireAuthorization]</code></td>
+<td>Requires authorization.</td>
 </tr>
 <tr>
 <td><code>/_ma-auth/reset/request</code></td>
 <td>POST</td>
-<td>enumeration-safe: always the same response/timing whether or not the account exists</td>
+<td>Enumeration-safe: the same response and timing whether or not the account exists.</td>
 </tr>
 <tr>
 <td><code>/_ma-auth/reset/confirm</code></td>
 <td>POST</td>
-<td>consumes a reset token, sets the new password, never auto-logs-in</td>
+<td>Consumes a reset token and sets the new password; never auto-logs-in.</td>
 </tr>
 </tbody></table>
-<p><strong>Razor components</strong> (<code>Components/</code>) — all presentation-only static-SSR <code>&lt;form method="post"&gt;</code>, antiforgery token included, no component calls <code>SignInAsync</code> <code>MaLogin</code> · <code>MaLogout</code> · <code>MaChangePassword</code> · <code>MaMfaChallenge</code> · <code>MaMfaSetup</code> (interactive — enrollment + one-time recovery-code display) · <code>MaForgotPassword</code> · <code>MaResetPassword</code></p>
-<p><strong>Options</strong> (bound from <code>IConfiguration</code>, section paths below; see <a href="docs/CONFIGURATION.md"><code>docs/CONFIGURATION.md</code></a> for every key + default)</p>
+<h3 id="razor-components">Razor components</h3>
+<p>All are presentation-only static-SSR forms with an antiforgery token, and none calls <code>SignInAsync</code>: <code>MaLogin</code>, <code>MaLogout</code>, <code>MaChangePassword</code>, <code>MaMfaChallenge</code>, <code>MaMfaSetup</code> (interactive: enrollment plus one-time recovery-code display), <code>MaForgotPassword</code>, <code>MaResetPassword</code>.</p>
+<h3 id="data-seam">Data seam</h3>
+<p><code>IAuthDataContext</code> exposes eight <code>DbSet</code> properties over the <code>auth</code> schema (<code>AuthModel.DefaultSchema</code>), applied via <code>ApplyMindAtticAuthConfiguration()</code>. <code>AuthModel.ModelFingerprint</code> is currently <code>"auth-v2"</code>, so a host can assert its migration matches.</p>
+<h2 id="configuration">Configuration</h2>
+<p>Options bind from <code>IConfiguration</code>. Every key, secret and default, with an example <code>appsettings.json</code>, is in <a href="docs/CONFIGURATION.md">docs/CONFIGURATION.md</a>.</p>
 <table><thead><tr>
 <th>Type</th>
 <th>Section</th>
@@ -325,175 +330,175 @@ public class AppDbContext : DbContext, IAuthDataContext
 <tr>
 <td><code>AuthCryptoOptions</code></td>
 <td><code>MindAttic:Auth:Crypto</code></td>
-<td>Argon2 memory/time/parallelism, salt/hash sizes, password length bounds, current pepper key id; <code>ValidateOrThrow()</code> enforces OWASP floors at startup</td>
+<td>Argon2 memory, time and parallelism; salt and hash sizes; password length bounds; current pepper key id. <code>ValidateOrThrow()</code> enforces OWASP floors at startup.</td>
 </tr>
 <tr>
 <td><code>AuthPolicyOptions</code></td>
 <td><code>MindAttic:Auth:Policy</code></td>
-<td>min/max length, HIBP check + fail-open, password history depth</td>
+<td>Min and max length, HIBP check and fail-open, password history depth (default 5).</td>
 </tr>
 <tr>
 <td><code>AuthSessionOptions</code></td>
 <td><code>MindAttic:Auth:Session</code></td>
-<td>absolute/idle timeout, revalidation interval</td>
+<td>Absolute timeout (8 h), idle timeout (30 min), revalidation interval (1 min).</td>
 </tr>
 <tr>
 <td><code>MfaOptions</code></td>
 <td><code>MindAttic:Auth:Mfa</code></td>
-<td>TOTP issuer/digits/period/window, recovery-code count/size, <code>RequireForAdmin</code></td>
+<td>TOTP issuer, digits, period and window; recovery-code count and size; <code>RequireForAdmin</code>.</td>
 </tr>
 <tr>
 <td><code>AuthResetOptions</code></td>
 <td><code>MindAttic:Auth:Reset</code></td>
-<td>public base URL, reset path, token TTL, emails/hour cap</td>
+<td>Public base URL, reset path, token TTL (15 min), emails-per-hour cap (3).</td>
 </tr>
 </tbody></table>
-<p><strong>Data seam</strong> (<code>Data/</code>, <code>Entities/</code>) — <code>IAuthDataContext</code> exposes 8 <code>DbSet&lt;T&gt;</code>s over the <code>auth</code> schema (<code>AuthModel.DefaultSchema</code>), applied via <code>ApplyMindAtticAuthConfiguration()</code>; <code>AuthModel.ModelFingerprint</code> is currently <code>"auth-v2"</code> so a host can assert its migration matches.</p>
-<h2 id="security-design-summary">Security design (summary)</h2>
-<p>Full control-by-control detail, OWASP/NIST mapping, and the residual-risk register live in <a href="docs/SECURITY<em>SPEC.md"><code>docs/SECURITY_SPEC.md</code></a>. Verified-by-test claims are cited in <a href="docs/USER</em>STORIES.md"><code>docs/USER_STORIES.md</code></a>; only what's cited there is ✅.</p>
-<ul>
-<li><strong>Password storage.</strong> Argon2id (Konscious, RFC 9106) — `m=64 MiB, t=3, p=4, 16-byte salt, 32-byte hash<code> — over </code>HMAC-SHA256(pepper, NFKC-UTF8(password))<code>. The pepper is resolved by key id   (</code>pepper.v1<code>, </code>v2<code>, …) so it can rotate; hashes are self-describing PHC strings so </code>NeedsRehash<code> is   deterministic. Legacy bcrypt/SHA-256 hashes verify with the original algorithm once, then silently   re-hash to Argon2id+pepper. A precomputed decoy Argon2id verify runs for absent/inactive accounts so   timing doesn't reveal existence; a </code>SemaphoreSlim` gate caps concurrent hashing (peak RAM = N × 64 MiB).</li>
-<li><strong>Sessions.</strong> <code>__Host-MindAttic.Auth</code> cookie — HttpOnly, <code>Secure=Always</code>, <code>SameSite=Lax</code>, 8h absolute / 30m idle, no infinite sliding. <code>SecurityStamp</code> is revalidated on both the HTTP path   (<code>CookieValidation</code>) and the Blazor circuit (<code>MaRevalidatingAuthenticationStateProvider</code>) every   minute. <code>AuthSession</code> rows enable per-session revoke and global logout via stamp rotation.   ASP.NET Data Protection uses a per-<code>AppName</code> key ring; production wiring is fail-closed (throws at   startup if <code>ConfigureDataProtection</code> isn't supplied).</li>
-<li><strong>Brute-force &amp; enumeration.</strong> <code>AuthLoginThrottle</code> is a persistent, DB-backed exponential backoff keyed per-account and per-IP (survives restart, shared across instances — no in-memory state).   Login/MFA/reset responses are uniform in content and timing (<code>TimingFloor</code>) across every outcome.</li>
-<li><strong>MFA.</strong> TOTP (RFC 6238: HMAC-SHA1, 6 digits, 30s, ±1 step), replay-guarded (<code>LastTotpStepUsed</code>), verify-before-enable enrollment, plus single-use recovery codes stored only as Argon2id+pepper   hashes. <code>MfaOptions.RequireForAdmin</code> (default <code>true</code>) forces the <code>Admin</code> role through enrollment   before reaching protected surfaces (<code>ma:admin</code> policy requires <code>amr=mfa</code>).</li>
-<li><strong>Password policy &amp; reset.</strong> NIST-aligned: ≥12 chars, up to 128, all Unicode, no composition rules, no forced rotation. HIBP k-anonymity breach check, fail-open with an audited skip on outage.   Password history (reuse prevention). Reset tokens are single-use, ≤15 min TTL, stored as an   HMAC-SHA256 hash — never a bare token — and never auto-sign the user in.</li>
-<li><strong>Secrets.</strong> <code>IAuthSecrets</code>/<code>ConfigAuthSecrets</code> reads <code>MindAttic:Vault:Security:&lt;name&gt;</code> from <code>IConfiguration</code> and <strong>throws</strong> rather than returning empty on a missing/blank value — see the   honest caveat about the <code>MindAttic.Vault</code> dependency in <a href="#current-status">Current status</a>.</li>
-<li><strong>Packaging.</strong> Endpoints — never components — own <code>SignInAsync</code>/<code>SignOutAsync</code>; every POST is antiforgery-protected; a scoped CSP nonce applies only to the auth surface so it never clobbers a   host app's own CSP needs; <code>#if MA_DEV_AUTH</code> gates the dev-only localhost auth bypass so it compiles   out of Release builds entirely (the constant is defined only under <code>Configuration == 'Debug'</code>).</li>
-</ul>
-<h2 id="directory-layout">Directory layout</h2>
-<pre><code>MindAttic.Authentication/
-├─ src/MindAttic.Authentication/          RCL, net10.0 → NuGet
+<p>Secrets are read from <code>MindAttic:Vault:Security:&lt;name&gt;</code> and the library fails closed when one is missing. How to provision and rotate them is in <a href="docs/OPERATIONS.md">docs/OPERATIONS.md</a>.</p>
+<h2 id="project-layout">Project layout</h2>
+<pre><code class="language-text">MindAttic.Authentication/
+├─ src/MindAttic.Authentication/          RCL, net10.0, packed to NuGet
 │  ├─ Components/    7 presentation-only Razor forms (MaLogin, MaLogout, MaChangePassword,
 │  │                 MaMfaChallenge, MaMfaSetup, MaForgotPassword, MaResetPassword)
-│  ├─ Crypto/         Argon2idPasswordHasher, IPasswordHasher, Phc (PHC codec)
-│  ├─ Data/           AuthModel (EF config owning the `auth` schema), IAuthDataContext
-│  ├─ Entities/       AuthEntities.cs — the 8 owned tables + enums
-│  ├─ Internal/       AuthKeys, TimingFloor, UrlSafety — implementation detail, not covered
-│  │                  by the cross-version API stability promise (see docs/VERSIONING.md)
-│  ├─ Options/        AuthCryptoOptions, AuthPolicyOptions, AuthResetOptions,
-│  │                  AuthSessionOptions, MfaOptions, PasswordPolicyDescriptor
-│  ├─ Secrets/        IAuthSecrets, ConfigAuthSecrets (fail-closed config-based secret access)
-│  ├─ Services/       AccountLockoutService, AuthAuditWriter, AuthBootstrapper,
-│  │                  AuthenticationService, IAuthEmailSender (+ LoggingAuthEmailSender stub),
-│  │                  MfaEnrollmentService, PasswordChangeService, PasswordPolicy,
-│  │                  PasswordResetService, TotpService, UserAdminService, UserStore
-│  ├─ Web/            MindAtticAuthExtensions (DI), MindAtticAuthAppExtensions (middleware),
-│  │                  AuthEndpoints (/_ma-auth/*), CookieValidation, IMaClaimsAugmentor,
-│  │                  MaRevalidatingAuthenticationStateProvider, DevAuthBypass (#if MA_DEV_AUTH)
-│  └─ MaClaims.cs     Claim type / role / policy / scheme-name constants
-├─ tests/MindAttic.Authentication.Tests/   NUnit 4, 184 tests — all green (see Current status)
-├─ tools/             codex.ps1 (Codex doctor/digest CLI) — the provisioning CLI itself
-│                     (pepper/KEK/reset-key generation) does not exist yet, see docs/rfc/0001
-├─ pack/, pack-out/   Local nupkg snapshots from earlier manual `dotnet pack` runs
-│                     (1.0.0/2.0.0) — stale; not regenerated by anything in this repo automatically
-├─ docs/              Codex canon + prose detail docs — see Documentation map below
+│  ├─ Crypto/        Argon2idPasswordHasher, IPasswordHasher, Phc (PHC codec)
+│  ├─ Data/          AuthModel (EF config owning the auth schema), IAuthDataContext
+│  ├─ Entities/      AuthEntities.cs: the 8 owned tables + enums
+│  ├─ Internal/      AuthKeys, TimingFloor, UrlSafety: implementation detail, not covered
+│  │                 by the cross-version API stability promise (see docs/VERSIONING.md)
+│  ├─ Options/       AuthCryptoOptions, AuthPolicyOptions, AuthResetOptions,
+│  │                 AuthSessionOptions, MfaOptions, PasswordPolicyDescriptor
+│  ├─ Secrets/       IAuthSecrets, ConfigAuthSecrets (fail-closed config-based secret access)
+│  ├─ Services/      AccountLockoutService, AuthAuditWriter, AuthBootstrapper,
+│  │                 AuthenticationService, IAuthEmailSender (+ LoggingAuthEmailSender stub),
+│  │                 MfaEnrollmentService, PasswordChangeService, PasswordPolicy,
+│  │                 PasswordResetService, TotpService, UserAdminService, UserStore
+│  ├─ Web/           MindAtticAuthExtensions (DI), MindAtticAuthAppExtensions (middleware),
+│  │                 AuthEndpoints (/_ma-auth/*), CookieValidation, IMaClaimsAugmentor,
+│  │                 MaRevalidatingAuthenticationStateProvider, DevAuthBypass (#if MA_DEV_AUTH)
+│  └─ MaClaims.cs    claim type, role, policy and scheme-name constants
+├─ tests/MindAttic.Authentication.Tests/   NUnit 4 suite
+├─ tools/            codex.ps1 (Codex doctor/digest), build-readme.ps1 (README.htm)
+├─ pack/, pack-out/  stale local nupkg snapshots (1.0.0, 2.0.0) from earlier manual packs
+├─ docs/             Codex canon + detail docs (see Documentation)
 └─ MindAttic.Authentication.sln / .slnx</code></pre>
-<h2 id="build-test-and-pack">Build, test, and pack</h2>
-<pre><code class="language-powershell"># Build (there's both a .sln and a .slnx at the repo root — pass one explicitly,
-# `dotnet build` alone fails with MSB1011 because more than one solution file is present)
+<h2 id="building-and-testing">Building and testing</h2>
+<pre><code class="language-powershell"># There is both a .sln and a .slnx at the root, so name one explicitly;
+# plain `dotnet build` fails with MSB1011.
 dotnet build MindAttic.Authentication.sln -c Debug
 
-# Test — NUnit 4, 184 tests
+# NUnit 4 suite
 dotnet test MindAttic.Authentication.sln -c Debug
 
-# Pack into the shared local feed (per docs/CLAUDE.md's release procedure)
+# Pack into the shared local feed
 dotnet pack src/MindAttic.Authentication/MindAttic.Authentication.csproj -c Release -o C:\LocalNuGet</code></pre>
-<p><code>nuget.config</code> at the repo root points restore at two sources: a <code>LocalNuGet</code> feed (<code>C:\LocalNuGet</code>) and <code>nuget.org</code>. The csproj defines <code>MA_DEV_AUTH</code> only when <code>Configuration == 'Debug'</code>, so a <code>Release</code> pack never contains the dev-only localhost auth bypass — pack <code>Debug</code> only for a local dev feed, <code>Release</code> for anything a real app will reference.</p>
-<p>A release is not "done" until every subscriber's <code>PackageReference</code> is bumped and rebuilds — see the exhaustive reference-point table in <a href="CLAUDE.md"><code>CLAUDE.md</code></a> and <a href="docs/BIBLE.md#AUTH-LAW-7"><code>docs/BIBLE.md</code> LAW-7</a>. No subscriber references this library today (see <a href="#current-status">Current status</a>).</p>
-<h2 id="documentation-map">Documentation map</h2>
-<p>This repo follows the MindAttic Codex documentation standard — a fact lives in exactly one layer.</p>
+<p><code>nuget.config</code> points restore at two sources: a <code>LocalNuGet</code> feed (<code>C:\LocalNuGet</code>) and nuget.org. Because <code>MA_DEV_AUTH</code> is defined only for <code>Debug</code>, a <code>Release</code> pack never contains the dev-only localhost auth bypass: pack <code>Debug</code> only for a local dev feed and <code>Release</code> for anything a real app will reference.</p>
+<p>A release is not done until every subscriber's <code>PackageReference</code> is bumped and rebuilds; see <a href="docs/BIBLE.md">docs/BIBLE.md</a> (<code>AUTH-LAW-7</code>).</p>
+<h2 id="versioning">Versioning</h2>
+<p>Whole-number, major-only: <code>1.0.0</code>, then <code>2.0.0</code>, then <code>3.0.0</code>, and so on; minor and patch are always <code>0</code>. The current <code>&lt;Version&gt;</code> in the csproj is <code>4.0.0</code>. Consumers exact-pin. Crypto agility (Argon2 cost, pepper rotation) is in-band through configuration and <code>NeedsRehash</code>, not a version bump. Full policy: <a href="docs/VERSIONING.md">docs/VERSIONING.md</a>.</p>
+<h2 id="status">Status</h2>
+<p>Checked against this working tree on 2026-10-03:</p>
+<ul>
+<li><code>dotnet test MindAttic.Authentication.sln -c Debug</code>: 196 of 196 tests pass (NUnit 4, net10.0).</li>
+<li>Package version <code>4.0.0</code>. The 4.0.0 change is the Linux App Service secret-name matching described under Secrets.</li>
+<li>Sibling MindAttic repos reference the package at different versions: MindAttic.Ideas at 4.0.0, Prose and Tutor at 2.0.0, IdiotProof at 3.0.0. Bumping them is each app's own work.</li>
+<li>The <code>MindAttic.Vault 1.0.0</code> package reference is declared, but no code in <code>src/</code> uses it: <code>ConfigAuthSecrets</code> resolves every secret through plain <code>IConfiguration</code> by naming convention. A host wires its own Vault-backed (or any) configuration provider that fills that section.</li>
+<li>A cryptographic-primitive extraction into a separate <code>MindAttic.Cryptography</code> package was tried (commits <code>e1b94af</code>, <code>a618b74</code>) and fully reverted (<code>3c9fb8e</code>, whose message names only a hook script but whose diff restores <code>Crypto/</code>, <code>Secrets/</code>, <code>Internal/</code>, the docs and the csproj). Argon2id, PHC, TOTP and secret resolution live in this library.</li>
+<li>Compiles and is exercised indirectly, but has no dedicated unit test of its own: the <code>AuthenticationService</code> login and MFA-confirm pipeline, <code>MfaEnrollmentService</code>, <code>PasswordChangeService</code>, <code>AuthBootstrapper</code>, the Web DI, middleware and endpoint wiring, the revalidating auth-state provider, and the seven Razor components. See <a href="docs/USER%5FSTORIES.md"><code>docs/USER_STORIES.md</code></a>.</li>
+<li>The <code>pack/</code> and <code>pack-out/</code> folders hold stale 1.0.0 and 2.0.0 nupkgs; nothing regenerates them.</li>
+</ul>
+<h2 id="roadmap">Roadmap</h2>
+<p>Planned, not built:</p>
+<ul>
+<li>The provisioning CLI for generating the pepper, Data Protection KEK and reset-token key (<a href="docs/rfc/0001-provisioning-cli.md">docs/rfc/0001-provisioning-cli.md</a>).</li>
+<li>A signed, deterministic pack with a committed <code>packages.lock.json</code>.</li>
+<li>WebAuthn and FIDO2 (additive, non-breaking when it lands).</li>
+</ul>
+<h2 id="accepted-risks">Accepted risks</h2>
+<ul>
+<li>MFA is TOTP plus recovery codes for now; adversary-in-the-middle session relay against TOTP is the accepted residual until WebAuthn lands.</li>
+<li>Legacy hashes upgrade to Argon2id plus pepper on the next successful login; dormant accounts get a forced reset rather than an indefinite weak-hash residual.</li>
+<li>HIBP is fail-open online with a bundled offline fallback and an audited skip, so an HIBP outage never blocks password changes.</li>
+<li>The apps stay separate trust boundaries; there is no cross-app SSO.</li>
+<li>Other accepted residuals (pepper and KEK in process memory, a Vault or configuration outage becoming a fail-closed auth outage, the 60-second stale-principal window, the operator-gated MFA-reset channel, distributed low-and-slow credential stuffing under per-scope thresholds) are listed with mitigations in <a href="docs/SECURITY%5FSPEC.md"><code>docs/SECURITY_SPEC.md</code></a>, section 8.</li>
+</ul>
+<h2 id="documentation">Documentation</h2>
+<p>This repo follows the MindAttic Codex documentation standard; a fact lives in exactly one layer.</p>
 <table><thead><tr>
 <th>Doc</th>
 <th>Layer</th>
 <th>What it covers</th>
 </tr></thead><tbody>
 <tr>
-<td><a href="docs/BIBLE.md"><code>docs/BIBLE.md</code></a></td>
+<td><a href="docs/BIBLE.md">docs/BIBLE.md</a></td>
 <td>L0</td>
-<td>What the system IS/is NOT, architecture, the Laws, verified state</td>
+<td>What the system is and is not, architecture, the Laws, verified state</td>
 </tr>
 <tr>
-<td><a href="docs/AMENDMENTS.md"><code>docs/AMENDMENTS.md</code></a></td>
+<td><a href="docs/AMENDMENTS.md">docs/AMENDMENTS.md</a></td>
 <td>L1</td>
-<td>Append-only change log — an amendment wins over the bible</td>
+<td>Append-only change log; an amendment wins over the bible</td>
 </tr>
 <tr>
-<td><a href="docs/USER_STORIES.md"><code>docs/USER_STORIES.md</code></a></td>
+<td><a href="docs/USER%5FSTORIES.md"><code>docs/USER_STORIES.md</code></a></td>
 <td>L2</td>
 <td>Every story cites its verifying NUnit test</td>
 </tr>
 <tr>
-<td><a href="docs/rfc/"><code>docs/rfc/</code></a></td>
+<td><a href="docs/rfc">docs/rfc/</a></td>
 <td>rfc</td>
-<td>Design notes not yet graduated into L0/L2 (currently: the provisioning-CLI proposal)</td>
+<td>Design notes not yet graduated (currently the provisioning-CLI proposal)</td>
 </tr>
 <tr>
-<td><a href="docs/BIBLE.digest.md"><code>docs/BIBLE.digest.md</code></a></td>
+<td><a href="docs/BIBLE.digest.md">docs/BIBLE.digest.md</a></td>
 <td>generated</td>
-<td>Produced by <code>tools/codex.ps1 digest</code> — never hand-edit</td>
+<td>Produced by <code>tools/codex.ps1 digest</code>; never hand-edited</td>
 </tr>
 <tr>
-<td><a href="docs/SECURITY_SPEC.md"><code>docs/SECURITY_SPEC.md</code></a></td>
+<td><a href="docs/SECURITY%5FSPEC.md"><code>docs/SECURITY_SPEC.md</code></a></td>
 <td>detail</td>
-<td>Legion-hardened, red-teamed design rationale; full control/OWASP/NIST mapping</td>
+<td>Red-teamed design rationale; full control, OWASP and NIST mapping</td>
 </tr>
 <tr>
-<td><a href="docs/API.md"><code>docs/API.md</code></a></td>
+<td><a href="docs/API.md">docs/API.md</a></td>
 <td>detail</td>
-<td>Exhaustive public API reference, every type and member</td>
+<td>Exhaustive public API reference</td>
 </tr>
 <tr>
-<td><a href="docs/INTEGRATION.md"><code>docs/INTEGRATION.md</code></a></td>
+<td><a href="docs/INTEGRATION.md">docs/INTEGRATION.md</a></td>
 <td>detail</td>
-<td>Step-by-step host adoption walkthrough</td>
+<td>Step-by-step host adoption</td>
 </tr>
 <tr>
-<td><a href="docs/CONFIGURATION.md"><code>docs/CONFIGURATION.md</code></a></td>
+<td><a href="docs/CONFIGURATION.md">docs/CONFIGURATION.md</a></td>
 <td>detail</td>
-<td>Every config key + secret + option, with an example <code>appsettings.json</code></td>
+<td>Every config key, secret and option, with an example appsettings.json</td>
 </tr>
 <tr>
-<td><a href="docs/OPERATIONS.md"><code>docs/OPERATIONS.md</code></a></td>
+<td><a href="docs/OPERATIONS.md">docs/OPERATIONS.md</a></td>
 <td>detail</td>
 <td>Runbook: provisioning, bootstrap, rotation, disaster recovery, email, deployment</td>
 </tr>
 <tr>
-<td><a href="docs/ADOPTION_PLAYBOOK.md"><code>docs/ADOPTION_PLAYBOOK.md</code></a></td>
+<td><a href="docs/ADOPTION%5FPLAYBOOK.md"><code>docs/ADOPTION_PLAYBOOK.md</code></a></td>
 <td>detail</td>
-<td>Per-app adoption strategy and order (Prose → Ideas → Tutor)</td>
+<td>Per-app adoption strategy and order (Prose, Ideas, Tutor)</td>
 </tr>
 <tr>
-<td><a href="docs/VERSIONING.md"><code>docs/VERSIONING.md</code></a></td>
+<td><a href="docs/VERSIONING.md">docs/VERSIONING.md</a></td>
 <td>detail</td>
-<td>The major-only versioning policy and what a major bump means</td>
+<td>The major-only versioning policy</td>
+</tr>
+<tr>
+<td><a href="docs/README.md">docs/README.md</a></td>
+<td>index</td>
+<td>Index of the detail docs</td>
 </tr>
 </tbody></table>
-<p>Org-wide rules are inherited by reference from <code>../MindAttic.HouseRules.md</code> (not restated here); see <a href="CLAUDE.md"><code>CLAUDE.md</code></a> for the working rules and the mandatory downstream-propagation procedure.</p>
-<h2 id="current-status">Current status</h2>
-<p>Verified directly against this working tree on 2026-08-14 (build + test run as part of writing this README — not carried forward from stale docs):</p>
-<ul>
-<li><strong>Build:</strong> <code>dotnet build MindAttic.Authentication.sln -c Debug</code> → succeeded, <strong>0 warnings, 0 errors</strong>.</li>
-<li><strong>Tests:</strong> <code>dotnet test MindAttic.Authentication.sln -c Debug</code> → <strong>184/184 passing</strong>, NUnit 4, net10.0.</li>
-<li><strong><code>&lt;Version&gt;</code> in the csproj is <code>3.0.0</code></strong> today. Treat any other version number you see elsewhere in this repo as stale: the <code>pack/</code> and <code>pack-out/</code> folders hold leftover <code>1.0.0</code>/<code>2.0.0</code> nupkgs from   earlier manual pack runs, and <code>obj/**/*.nuspec</code> under <code>src</code>/<code>tests</code> contains generated artifacts for   <code>1.0.0</code>, <code>2.0.0</code>, <code>3.0.0</code>, and <code>4.0.0</code> from prior build configurations — none of that reflects the   currently-checked-out source.</li>
-<li><strong>A cryptographic-primitive extraction was tried and fully reverted.</strong> Commit <code>e1b94af</code> moved Argon2id/PHC/TOTP/secret-resolution into a standalone <code>MindAttic.Cryptography</code> package (bumping to   <code>4.0.0</code>) and <code>a618b74</code> updated the Codex docs to match; commit <code>3c9fb8e</code> — titled only "Revert 'fix:   SessionStart hook…'" — actually reverted all three of those commits' file changes back to the prior   state (its diff touches <code>Crypto/</code>, <code>Secrets/</code>, <code>Internal/</code>, the docs, and the csproj, not just the   hook script its message names). The working tree today, and the docs canon in <code>docs/</code>, are   consistent with the <strong>pre-extraction</strong> state: Argon2id/PHC/TOTP/secrets live locally in this   library, as described above. Worth knowing if you go looking for <code>MindAttic.Cryptography</code> — it was   tried here and backed out, not merely "not yet done."</li>
-<li><strong>The <code>MindAttic.Vault</code> PackageReference is declared but unused by any code in this library.</strong> The csproj pins <code>MindAttic.Vault 1.0.0</code> as "the only hard dependency," but a repo-wide search finds no   <code>using MindAttic.Vault</code> anywhere in <code>src/</code> — <code>ConfigAuthSecrets</code> resolves every secret through plain   <code>IConfiguration</code> under <code>MindAttic:Vault:Security:&lt;name&gt;</code> by string convention. In practice this means   a host must wire its own Vault-backed configuration provider (or any provider) that populates that   section; this library never calls a Vault API directly. (The extraction commit above independently   reached the same conclusion and dropped the reference — that change was reverted along with   everything else, so the unused reference is back.)</li>
-<li><strong>No app has adopted this library yet.</strong> <code>docs/CLAUDE.md</code>'s propagation table names Ideas, Prose, and Tutor as the intended subscribers; none currently has a <code>PackageReference</code> to   <code>MindAttic.Authentication</code> (out of scope to verify further — those are separate repos).</li>
-<li><strong><code>tools/</code> contains only <code>codex.ps1</code></strong> (the Codex doctor/digest CLI). The provisioning CLI for generating the pepper/DP-KEK/reset-token key (<a href="docs/rfc/0001-provisioning-cli.md"><code>docs/rfc/0001-provisioning-cli.md</code></a>)   has not been built.</li>
-<li><strong>🟡 Compiles and is exercised indirectly, but has no dedicated unit test of its own:</strong> the <code>AuthenticationService.LoginAsync</code>/<code>ConfirmMfaAsync</code> end-to-end pipeline, <code>MfaEnrollmentService</code>,   <code>PasswordChangeService</code>, <code>AuthBootstrapper</code>, the Web DI/middleware/endpoint wiring, the   revalidating auth-state provider, and all seven Razor components. See   <a href="docs/USER_STORIES.md"><code>docs/USER_STORIES.md</code></a> for the story-by-story breakdown (Epics D3, E3, G1–G4).</li>
-<li><strong>⬜ Not started:</strong> the provisioning CLI, a signed/deterministic pack with a committed <code>packages.lock.json</code>, and all three app adoptions.</li>
-</ul>
-<h2 id="versioning">Versioning</h2>
-<p>Whole-number, major-only — <code>1.0.0</code>, then <code>2.0.0</code>, then <code>3.0.0</code>, … Minor and patch are always <code>0</code>. Consumers exact-pin (<code>&lt;PackageReference Include="MindAttic.Authentication" Version="3.0.0" /&gt;</code>). Crypto agility (Argon2 cost, pepper rotation) is in-band via config + <code>NeedsRehash</code>, not a version bump. Full policy: <a href="docs/VERSIONING.md"><code>docs/VERSIONING.md</code></a>.</p>
-<h2 id="ratified-decisions-accepted-residual-risks">Ratified decisions &amp; accepted residual risks</h2>
-<ul>
-<li><strong>MFA:</strong> TOTP + recovery codes now; WebAuthn/FIDO2 deferred (additive, non-breaking when it lands). AITM/Evilginx session relay against TOTP is the accepted residual until then.</li>
-<li><strong>Existing users:</strong> legacy hashes upgrade to Argon2id+pepper on next successful login; dormant accounts get a forced reset rather than an indefinite weak-hash residual.</li>
-<li><strong>HIBP:</strong> fail-open online with a bundled offline fallback and an audited skip — a HIBP outage never blocks password changes.</li>
-<li><strong>Trust boundaries:</strong> the three apps stay separate; no cross-app SSO.</li>
-<li>Other accepted residuals (pepper/KEK in process memory, Vault/config outage = fail-closed auth outage, the ≤60s stale-principal window, the operator-gated MFA-reset bypass channel, distributed   low-and-slow credential stuffing under per-scope thresholds) are enumerated with mitigations in   <a href="docs/SECURITY_SPEC.md"><code>docs/SECURITY_SPEC.md</code></a> §8.</li>
-</ul>
+<p>Instructions for coding agents working in this repo are in <a href="AGENTS.md">AGENTS.md</a>.</p>
+<h2 id="license">License</h2>
+<p>This repository has no LICENSE file. All rights reserved.</p>
+<p>Part of <a href="https://mindattic.com">MindAttic</a> — see more projects at <a href="https://github.com/mindattic">github.com/mindattic</a>. Related: <a href="https://github.com/mindattic/MindAttic.Vault">MindAttic.Vault</a>, <a href="https://github.com/mindattic/MindAttic.Ideas">MindAttic.Ideas</a>, <a href="https://github.com/mindattic/Prose">Prose</a>, <a href="https://github.com/mindattic/Tutor">Tutor</a>.</p>
 
-    <p class="codex-footer">Generated 2026-08-14 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
+    <p class="codex-footer">Generated 2026-10-03 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
   </main>
 </div>
 <script>(function(){
