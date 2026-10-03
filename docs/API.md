@@ -4,8 +4,8 @@ Exhaustive reference for every public type the library exposes (namespace `MindA
 For the *why* behind each control see [`SECURITY_SPEC.md`](SECURITY_SPEC.md); for wiring see
 [`INTEGRATION.md`](INTEGRATION.md); for config keys see [`CONFIGURATION.md`](CONFIGURATION.md).
 
-> **Versioning:** major-version-only. The assembly/package version is `1.0.0` for all of v1; the next
-> release is `2.0.0`, then `3.0.0` — never `1.1.0`/`1.0.1`. The frozen behaviors below only change across
+> **Versioning:** major-version-only. The assembly/package version is `4.0.0`; the next release is
+> `5.0.0` — never a minor or patch bump. The frozen behaviors below only change across
 > a major bump. See [`VERSIONING.md`](VERSIONING.md).
 
 ---
@@ -104,7 +104,7 @@ public interface IAuthDataContext {                 // the app's DbContext imple
 }
 public static class AuthModel {
     public const string DefaultSchema = "auth";
-    public const string ModelFingerprint = "auth-v1";
+    public const string ModelFingerprint = "auth-v2";
     public static ModelBuilder ApplyMindAtticAuthConfiguration(this ModelBuilder b, string schema = DefaultSchema);
 }
 ```

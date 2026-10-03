@@ -1,5 +1,5 @@
 ---
-description: Release MindAttic.Authentication and propagate the new version to all subscribers (Ideas, Prose, Tutor)
+description: Release MindAttic.Authentication and propagate the new version to all subscribers (Ideas, IdiotProof, Prose, Tutor)
 argument-hint: "[version]  (optional; defaults to next whole-number major)"
 allowed-tools: Read, Edit, Grep, Glob, Bash(dotnet pack:*), Bash(dotnet build:*), Bash(dotnet restore:*), Bash(dotnet nuget locals:*)
 ---
@@ -7,7 +7,7 @@ allowed-tools: Read, Edit, Grep, Glob, Bash(dotnet pack:*), Bash(dotnet build:*)
 You are publishing a new release of **MindAttic.Authentication** and propagating it to every
 downstream subscriber. The library is consumed as a NuGet `PackageReference` (not a project
 reference), so nothing propagates automatically — you must bump, pack, and update each
-subscriber explicitly. See this repo's `CLAUDE.md` for the canonical rule.
+subscriber explicitly. See `docs/BIBLE.md` (AUTH-LAW-7) for the canonical rule.
 
 ## Target version
 
@@ -31,9 +31,10 @@ subscriber explicitly. See this repo's `CLAUDE.md` for the canonical rule.
 3. **Propagate** — update the `MindAttic.Authentication` `PackageReference Version` to the new
    version in ALL of these (re-grep in case a subscriber added a project; this list is the
    known minimum, not a cap):
-   - `D:\Projects\MindAttic\MindAttic.Ideas\src\MindAttic.Ideas.Web\MindAttic.Ideas.Web.csproj`
+   - `D:\Projects\MindAttic\MindAttic.Ideas\src\MindAttic.Ideas.Blazor\MindAttic.Ideas.Blazor.csproj`
    - `D:\Projects\MindAttic\MindAttic.Ideas\src\MindAttic.Ideas.Core\MindAttic.Ideas.Core.csproj`
-   - `D:\Projects\MindAttic\Prose\v3\Prose.Core\Prose.Core.csproj`
+   - `D:\Projects\MindAttic\IdiotProof\IdiotProof.Blazor\IdiotProof.Blazor.csproj`
+   - `D:\Projects\MindAttic\Prose\src\Prose.Core\Prose.Core.csproj`
    - `D:\Projects\MindAttic\Tutor\Tutor.Core\Tutor.Core.csproj`
 
    Before editing, run a grep for `MindAttic.Authentication` across all subscriber repos to

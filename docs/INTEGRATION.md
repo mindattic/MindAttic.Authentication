@@ -4,8 +4,8 @@ A consuming app keeps its own `DbContext`, connection string, and deployment. It
 (1) referencing the package, (2) implementing `IAuthDataContext` on its `DbContext`, (3) wiring DI +
 middleware + endpoints, (4) adding login/MFA/account pages, and (5) provisioning Vault secrets.
 
-> The three apps remain **separate trust boundaries** — each picks a unique `AppName`, so a cookie from
-> one app can never authenticate to another.
+> Every consuming app (today MindAttic.Ideas, IdiotProof, Prose and Tutor) is a **separate trust boundary** —
+> each picks a unique `AppName`, so a cookie from one app can never authenticate to another.
 
 ---
 
@@ -17,8 +17,8 @@ middleware + endpoints, (4) adding login/MFA/account pages, and (5) provisioning
 <add key="LocalNuGet" value="C:\LocalNuGet" />
 ```
 ```xml
-<PackageReference Include="MindAttic.Authentication" Version="1.0.0" />
-<PackageReference Include="MindAttic.Vault" Version="1.0.0" />
+<PackageReference Include="MindAttic.Authentication" Version="4.0.0" />
+<PackageReference Include="MindAttic.Vault" Version="1.0.0" />   <!-- if the host fills config through Vault -->
 ```
 
 ## 2. Implement `IAuthDataContext` on your DbContext
@@ -125,5 +125,5 @@ Before first run, provision the Vault `Security` bucket: `pepper.v1`, `bootstrap
 
 Run a one-time data migration mapping your old user rows → `AuthUser`, carrying the old hash with
 `LegacyHashScheme = "bcrypt"` (or `"sha256"`), so they upgrade to Argon2id+pepper on next login. Force a
-reset for any known-bad/hardcoded/dormant accounts. Map your old admin role onto `MaRoles.Admin`. See the
-adoption playbook for per-app specifics.
+reset for any known-bad/hardcoded/dormant accounts. Map your old admin role onto `MaRoles.Admin` (the one
+canonical admin role name; the library has no option to rename it).

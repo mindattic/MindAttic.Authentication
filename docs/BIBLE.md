@@ -4,40 +4,40 @@ project: MindAttic.Authentication
 code: AUTH
 layer: bible
 status: living
-updated: 2026-06-07
+updated: 2026-10-03
 ---
 
 # MindAttic.Authentication — Project Bible
 > Single source of truth for what MindAttic.Authentication IS, is NOT, and the rules that keep it coherent.
 > README.md says how to build/run; this says how to think about the system.
-> Layer map: L0 this bible · L1 [AMENDMENTS](AMENDMENTS.md) (amendment wins) · L2 [USER_STORIES](USER_STORIES.md) · rfc [docs/rfc](rfc/) · generated [BIBLE.digest.md](BIBLE.digest.md).
+> Layer map: L0 this bible · L1 [AMENDMENTS](AMENDMENTS.md) (pending decisions only) · L2 [USER_STORIES](USER_STORIES.md) · rfc [docs/rfc](rfc/) · generated [BIBLE.digest.md](BIBLE.digest.md).
 > The exhaustive design rationale lives in [SECURITY_SPEC.md](SECURITY_SPEC.md) (Legion-hardened, red-teamed); this bible is the navigable canon over it.
 
 ## 1. The one sentence {#AUTH-§1}
-MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication engine shipped as a single Razor Class Library (NuGet) so MindAttic.Ideas, Prose, and Tutor all authenticate **identically** — built to OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker **and a future full database breach**.
+MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication engine shipped as a single Razor Class Library (NuGet) so every consuming MindAttic app (MindAttic.Ideas, Prose, Tutor, IdiotProof) authenticates **identically** — built to OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker **and a future full database breach**.
 
 ## 2. The product promise {#AUTH-§2}
-- **One hardened engine, not three.** Replaces three divergent (one critically broken) per-app auth implementations with a single library that is correct in one place — see [§3](#AUTH-§3) for what it deliberately is not.
-- **Secure even when the host misconfigures.** Fail-closed secrets, fail-closed Data-Protection key ring, a fail-closed startup filter asserting middleware order — the library refuses to run insecurely rather than degrading silently.
+- **One hardened engine, not one per app.** Every consuming app uses the same library, so password storage, lockout, MFA, reset and audit are correct in one place — see [§3](#AUTH-§3) for what it deliberately is not.
+- **Secure even when the host misconfigures.** Fail-closed secrets, a fail-closed production Data-Protection key ring (startup throws without `ConfigureDataProtection`), floor-validated crypto options at startup, and middleware ordered by `UseMindAtticAuthentication` — the library refuses to run insecurely rather than degrading silently.
 - **Survives a full DB breach.** Argon2id+pepper where the pepper lives in a *different trust domain* (Vault), so a DB-only dump yields nothing crackable. See [LAW-1](#AUTH-LAW-1).
 - **No enumeration, no timing oracle.** Uniform response + uniform timing across every outcome (unknown user / bad password / locked / unverified / MFA-required). See [LAW-3](#AUTH-LAW-3).
 - **MFA that cannot be bypassed.** TOTP + single-use recovery codes; admin requires MFA; password reset never bypasses MFA. See [LAW-4](#AUTH-LAW-4).
-- **Per-app trust boundaries.** A stolen cookie from one app cannot authenticate to another; no cross-app SSO in v1. See [LAW-6](#AUTH-LAW-6).
+- **Per-app trust boundaries.** A stolen cookie from one app cannot authenticate to another; no cross-app SSO. See [LAW-6](#AUTH-LAW-6).
 - **Presentation never owns auth.** Endpoints own sign-in/out; Razor components are presentation-only static-SSR forms. See [LAW-5](#AUTH-LAW-5).
 
 ## 3. What it is NOT {#AUTH-§3}
 - **NOT a per-app rolled scheme.** Apps do not implement password hashing, lockout, MFA, or sessions; they adopt this library (org [HOUSE-LAW-7](../../MindAttic.HouseRules.md#HOUSE-LAW-7)).
-- **NOT a cross-app SSO / identity provider.** The three apps are **separate trust boundaries**; no shared login session across apps in v1.
-- **NOT a secrets store.** It *consumes* secrets through `MindAttic.Vault`; it never invents defaults and the running app never writes prod secrets (provisioning is a separate operator tool).
-- **NOT WebAuthn/FIDO2 (yet).** Phishing-resistant hardware MFA is deferred to v2; AITM/Evilginx relay against TOTP is an **accepted v1 residual** ([§6](#AUTH-§6)).
-- **NOT the owner of UI markup.** Components accept constrained `AuthUiOptions` (text + allow-listed logo/CSS class) — never raw `MarkupString`/HTML on any auth surface.
+- **NOT a cross-app SSO / identity provider.** Each consuming app is a **separate trust boundary**; there is no shared login session across apps.
+- **NOT a secrets store.** It *reads* secrets from configuration under `MindAttic:Vault:Security:*`, which the host fills (typically through MindAttic.Vault or Key Vault references); it never invents defaults and the running app never writes prod secrets (provisioning is a separate operator tool).
+- **NOT WebAuthn/FIDO2 (yet).** Phishing-resistant hardware MFA is planned (AUTH-US-D4); until then AITM/Evilginx relay against TOTP is an **accepted residual** ([§6](#AUTH-§6)).
+- **NOT the owner of UI markup.** Components take a small typed parameter set (`ReturnUrl`, `Error`, `Text`, `Sent`, `Token`); the host brands them with its own surrounding markup. No auth surface renders raw `MarkupString`/HTML.
 - **NOT a hard-delete system.** Account removal is a reversible disable (org [HOUSE-LAW-2](../../MindAttic.HouseRules.md#HOUSE-LAW-2)).
 - **NOT semver.** Whole-number major bumps only (org [HOUSE-LAW-1](../../MindAttic.HouseRules.md#HOUSE-LAW-1); [VERSIONING.md](VERSIONING.md)).
 
 ## 4. Architecture canon {#AUTH-§4}
 
 ```
-                       consuming app (Ideas / Prose / Tutor)
+                  consuming app (Ideas / Prose / Tutor / IdiotProof)
                                    |  PackageReference (NuGet)
    +-------------------------------v--------------------------------------+
    |                    MindAttic.Authentication (RCL, net10.0)           |
@@ -55,15 +55,26 @@ MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication 
    |   (IPasswordHasher)      (fail-closed)          (IAuthDataContext)   |
    +-----------|---------------------|------------------------|----------+
                |                     |                        |
-        Konscious Argon2      MindAttic.Vault          host EF Core DbContext
-        BCrypt (legacy)    (Security/DataProtection)    (owns `auth` schema)
+        Konscious Argon2       IConfiguration           host EF Core DbContext
+        BCrypt (legacy)   ("MindAttic:Vault:Security:*")  (owns `auth` schema)
 ```
 
 ### 4.1 Projects / layout
-- `src/MindAttic.Authentication/` — the RCL, `net10.0`, packed to NuGet (`1.0.0`). Subfolders: `Options/`, `Secrets/`, `Crypto/`, `Entities/`, `Data/`, `Services/`, `Web/`, `Components/`, `Internal/`. Root-level constants: `MaClaims.cs` (claim types, roles, policies, scheme names). (`MindAttic.Authentication.csproj`)
-- `tests/MindAttic.Authentication.Tests/` — NUnit 4 suite (184 tests). (`MindAttic.Authentication.Tests.csproj`)
-- **Only hard dependency:** `MindAttic.Vault` (exact-pinned). Plus Konscious Argon2 (1.3.1, exact-pin), BCrypt.Net-Next (legacy verify), EF Core Relational.
-- Adopted by three subscribers as a NuGet PackageReference — propagation procedure is mandatory; see [CLAUDE.md](../CLAUDE.md) and [LAW-7](#AUTH-LAW-7).
+- `src/MindAttic.Authentication/` — the RCL, `net10.0`, packed to NuGet (`<Version>` `4.0.0`). Subfolders: `Options/`, `Secrets/`, `Crypto/`, `Entities/`, `Data/`, `Services/`, `Web/`, `Components/`, `Internal/`. Root-level constants: `MaClaims.cs` (claim types, roles, policies, scheme names). (`MindAttic.Authentication.csproj`)
+- `tests/MindAttic.Authentication.Tests/` — NUnit 4 suite (196 tests). (`MindAttic.Authentication.Tests.csproj`)
+- **Package dependencies:** Konscious Argon2 (1.3.1, exact-pin), BCrypt.Net-Next (legacy verify), EF Core Relational, and `MindAttic.Vault` 1.0.0 — declared, but no code in `src/` calls it; secrets resolve through plain `IConfiguration` (`Secrets/ConfigAuthSecrets.cs`).
+
+### 4.1a Consumers {#AUTH-§4-consumers}
+Four sibling apps reference the package (a Debug-only `ProjectReference` to this repo sits beside the `PackageReference` where noted). Each sets its own `AppName`:
+
+| App | Referencing project(s) | Pinned version | `AppName` / wiring |
+|---|---|---|---|
+| MindAttic.Ideas | MindAttic.Ideas.Blazor, MindAttic.Ideas.Core (+ Debug ProjectReference) | 4.0.0 | `"Ideas"`; registers `IdeasClaimsAugmentor : IMaClaimsAugmentor` |
+| IdiotProof | IdiotProof.Blazor | 3.0.0 | `"IdiotProof"` |
+| Prose | Prose.Core (wired in Prose.Hub) | 2.0.0 | `"Prose"` |
+| Tutor | Tutor.Core (+ Debug ProjectReference; wired in Tutor.Blazor) | 2.0.0 | `"Tutor"` |
+
+Bumping a consumer's pinned version is that app's own work; a release of this library follows [LAW-7](#AUTH-LAW-7). The canonical role name is `MaRoles.Admin` (`"Admin"`) across all consumers; apps map their own legacy role names onto it in their data migration rather than configuring a different name.
 
 ### 4.2 Domain model (NOUNS)
 Canonical identity schema owned by the library, all tables in the isolated `auth` schema, **no FKs into app tables** (`Entities/AuthEntities.cs`):
@@ -106,25 +117,26 @@ Every authentication outcome returns one generic message and runs the same work 
 TOTP (RFC 6238, replay-guarded, verify-before-enable) plus single-use recovery codes stored only as Argon2id+pepper hashes. Admin role requires MFA (global policy + forced enrollment). Password reset preserves MFA, never sets `amr=mfa`, and never auto-logs-in. *(Verified by `TotpServiceTests`, `PasswordResetServiceTests`.)*
 
 ### {#AUTH-LAW-5} AUTH-LAW-5 — Endpoints own sign-in; components are presentation-only
-All `SignInAsync`/`SignOutAsync` happen in `[ValidateAntiforgery]` minimal-API endpoints (`/_ma-auth/*`), never inside a Blazor circuit or component. `<MaLogin/>` and siblings are static-SSR `<form method=post>` with antiforgery on every POST; no component contains a sign-in call. A fail-closed `IStartupFilter` asserts the middleware order. *(Verified by `UrlSafetyTests` (returnUrl safety on the endpoint path); build-enforced component shape.)*
+All `SignInAsync`/`SignOutAsync` happen in `[ValidateAntiforgery]` minimal-API endpoints (`/_ma-auth/*`), never inside a Blazor circuit or component. `<MaLogin/>` and siblings are static-SSR `<form method=post>` with antiforgery on every POST; no component contains a sign-in call. `UseMindAtticAuthentication` fixes the middleware order (authn → Debug-only dev bypass → authz → forced-step → scoped CSP nonce); no startup filter asserts it yet (AUTH-US-G5). *(Verified by `UrlSafetyTests` (returnUrl safety on the endpoint path); build-enforced component shape.)*
 
 ### {#AUTH-LAW-6} AUTH-LAW-6 — Each app is a separate trust boundary
-`SetApplicationName("MindAttic.Auth:{AppName}")` per app, so a cookie minted for one app cannot authenticate to another. The `auth` schema is isolated and has no FKs into app tables. No cross-app SSO in v1. *(Verified by per-app Data Protection isolation in the DI extension; build.)*
+`SetApplicationName("MindAttic.Auth:{AppName}")` per app, so a cookie minted for one app cannot authenticate to another. The `auth` schema is isolated and has no FKs into app tables. No cross-app SSO. *(Verified by per-app Data Protection isolation in the DI extension; build.)*
 
 ### {#AUTH-LAW-7} AUTH-LAW-7 — A release is not done until all subscribers reference it and build
-This library ships as a NuGet PackageReference to Ideas (×2 csproj), Prose, and Tutor. Every release bumps `<Version>` (whole-number), packs to the local feed, updates all subscriber csproj references, and rebuilds each subscriber. Missing any reference point is an incomplete release. (See [CLAUDE.md](../CLAUDE.md) for the exhaustive reference-point table.) *(Verified operationally; no in-repo test.)*
+This library ships as a NuGet PackageReference to the consumers in [§4.1a](#AUTH-§4-consumers). Every release bumps `<Version>` (whole-number), packs to the local feed, updates the subscriber csproj references, and rebuilds each subscriber; the `/publish` command (`.claude/commands/publish.md`) carries the procedure. Missing any reference point is an incomplete release. *(Verified operationally; no in-repo test.)*
 
 ## 6. Verified state {#AUTH-§6}
-Evidence captured 2026-06-07 on this working tree:
-- **Build:** `dotnet build -c Debug` → **succeeded, 0 warnings, 0 errors.** Library packs to `1.0.0`.
-- **Tests:** `dotnet test` → **Passed! Failed: 0, Passed: 184, Skipped: 0, Total: 184** (NUnit 4, net10.0).
-- **Proven working (✅, test-cited):** Argon2id+pepper hasher + PHC; fail-closed Vault secrets (`IAuthSecrets`); the 8-entity `auth` model; persistent per-account/per-IP lockout backoff; audit writer (sanitized, hashed keys); password policy (HIBP fail-open + offline + history); TOTP generate/validate + replay guard; password-reset request/consume; account-admin create/disable; URL-safety (open-redirect) guard; timing floor; account-key NFKC normalization; crypto options floor validation.
+Evidence captured 2026-10-03 on this working tree:
+- **Tests:** `dotnet test MindAttic.Authentication.sln -c Debug` → **Passed! Failed: 0, Passed: 196, Skipped: 0, Total: 196** (NUnit 4, net10.0). Name the solution explicitly: the root holds both a `.sln` and a `.slnx`.
+- **Package:** `<Version>` `4.0.0`.
+- **Proven working (✅, test-cited):** Argon2id+pepper hasher + PHC; fail-closed secrets (`IAuthSecrets`), including tolerance of Linux App Service setting-name mangling; the 8-entity `auth` model; persistent per-account/per-IP lockout backoff; audit writer (sanitized, hashed keys); password policy (HIBP fail-open + offline + history); TOTP generate/validate + replay guard; password-reset request/consume; account-admin create/disable; URL-safety (open-redirect) guard; timing floor; account-key NFKC normalization; crypto options floor validation.
 - **🟡 partial / built-but-unit-test-thin:** the `LoginAsync`/`ConfirmMfaAsync` end-to-end pipeline, MFA enrollment service, change-password service, bootstrap seeding, the Web DI/middleware/endpoints, the revalidating auth-state provider, and the Razor components are **compiled and present** but not all directly unit-tested in isolation — see [USER_STORIES](USER_STORIES.md).
-- **⬜ planned:** email-delivered password reset wiring, the provisioning CLI (`tools/`), signed deterministic pack, and the three app adoptions (Prose → Ideas → Tutor).
+- **In use:** the four consumers in [§4.1a](#AUTH-§4-consumers) call `AddMindAtticAuthentication` and `MapMindAtticAuthEndpoints`. None registers its own `IAuthEmailSender`, so reset and security-alert emails go to the default `LoggingAuthEmailSender` (log only).
+- **⬜ planned:** email-delivered password reset, the provisioning CLI, a startup filter asserting middleware order, a signed deterministic pack.
 
 ## 7. Active frontier {#AUTH-§7}
 - Design notes: [docs/rfc/](rfc/) — see [RFC 0001](rfc/0001-provisioning-cli.md) (provisioning CLI for CSPRNG secrets).
-- Open epics in [USER_STORIES](USER_STORIES.md): **Epic E (Reset/Recovery delivery)**, **Epic F (Provisioning & packaging)**, **Epic G (App adoption)**.
+- Open epics in [USER_STORIES](USER_STORIES.md): **Epic D (WebAuthn)**, **Epic E (reset email delivery)**, **Epic F (provisioning & packaging)**, **Epic G (login pipeline & web wiring hardening)**.
 - Authoritative design detail and residual-risk register: [SECURITY_SPEC.md](SECURITY_SPEC.md) §8 (accepted residuals: AITM relay vs TOTP; pepper/KEK in process memory; Vault outage = fail-closed auth outage; ≤60s stale-principal window; operator-reset MFA-bypass channel; distributed low-and-slow stuffing).
 
 ## 8. Quality bar {#AUTH-§8}
@@ -144,5 +156,5 @@ Anything not meeting (1)+(2) is marked 🟡/⬜, never ✅. (Org [HOUSE-LAW-8](.
 - **Timing floor** — minimum elapsed time (750ms + jitter) enforced on the login endpoint so fast/slow paths are indistinguishable.
 - **Throttle scope** — `Account` or `Ip`; the unit a brute-force backoff counter is keyed on.
 - **HIBP** — Have I Been Pwned k-anonymity breached-password check; fail-open online with a bundled offline fallback.
-- **DP key ring** — ASP.NET Data Protection keys, persisted via Vault, app-name-isolated per subscriber.
+- **DP key ring** — ASP.NET Data Protection keys, persisted wherever the host's `ConfigureDataProtection` puts them (e.g. Azure Blob + Key Vault), app-name-isolated per consumer.
 - **Trust boundary** — an app's isolated auth domain; a cookie/ticket valid in one is invalid in another.

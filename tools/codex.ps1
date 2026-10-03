@@ -7,7 +7,7 @@
               story test citations, cited paths, generated-artifact staleness);
               exit non-zero on any hard error.
     digest  - regenerate docs/BIBLE.digest.md from BIBLE.md (S1, S3, S5 Laws, S9)
-              plus a status index and the latest amendment head.
+              plus a status index and any pending decisions.
   Windows PowerShell 5.1 safe. No build step.
 .EXAMPLE
   powershell -File tools/codex.ps1 doctor
@@ -275,22 +275,18 @@ function Invoke-Digest {
   $sDone    = [char]0x2705                                   # white heavy check mark
   $sPartial = [string]::new([char[]]@([char]0xD83D, [char]0xDFE1))  # yellow circle U+1F7E1
   $sPlanned = [char]0x2B1C                                   # white large square
-  $sCut     = [string]::new([char[]]@([char]0xD83D, [char]0xDDD1))  # wastebasket U+1F5D1
-  $counts = @{ done = 0; partial = 0; planned = 0; cut = 0 }
+  $counts = @{ done = 0; partial = 0; planned = 0 }
   if (Test-Path $Stories) {
     $st = Read-Utf8 $Stories
     $counts.done    = ([regex]::Matches($st, [regex]::Escape($sDone))).Count
     $counts.partial = ([regex]::Matches($st, [regex]::Escape($sPartial))).Count
-    $counts.planned = ([regex]::Matches($st, [regex]::Escape($sPlanned))).Count
-    $counts.cut     = ([regex]::Matches($st, [regex]::Escape($sCut))).Count
-  }
+    $counts.planned = ([regex]::Matches($st, [regex]::Escape($sPlanned))).Count  }
 
-  # latest amendment head
-  $amendHead = ''
+  # pending decisions (AMENDMENTS.md entries not yet folded into the bible)
+  $pending = @()
   if (Test-Path $Amend) {
     $am = Read-Utf8 $Amend
-    $hm = [regex]::Matches($am, '(?m)^##\s+(AUTH-A\d+.*)$')
-    if ($hm.Count -gt 0) { $amendHead = $hm[$hm.Count - 1].Groups[1].Value.Trim() }
+    foreach ($m in [regex]::Matches($am, '(?m)^##\s+(AUTH-A\d+.*)$')) { $pending += $m.Groups[1].Value.Trim() }
   }
 
   $today = (Get-Date).ToString('yyyy-MM-dd')
@@ -313,10 +309,12 @@ function Invoke-Digest {
   [void]$sb.AppendLine($s9)
   [void]$sb.AppendLine("")
   [void]$sb.AppendLine("## Status index (from docs/USER_STORIES.md)")
-  [void]$sb.AppendLine(("- done: {0} | partial: {1} | planned: {2} | cut: {3}" -f $counts.done, $counts.partial, $counts.planned, $counts.cut))
-  [void]$sb.AppendLine("")
-  [void]$sb.AppendLine("## Latest amendment (amendment wins over the bible)")
-  [void]$sb.AppendLine("- $amendHead")
+  [void]$sb.AppendLine(("- done: {0} | partial: {1} | planned: {2}" -f $counts.done, $counts.partial, $counts.planned))
+  if ($pending.Count -gt 0) {
+    [void]$sb.AppendLine("")
+    [void]$sb.AppendLine("## Pending decisions (docs/AMENDMENTS.md, not yet folded into the bible)")
+    foreach ($p in $pending) { [void]$sb.AppendLine("- $p") }
+  }
 
   $outText = $sb.ToString()
   # write UTF-8 (no BOM)

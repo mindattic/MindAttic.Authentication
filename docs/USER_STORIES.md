@@ -4,13 +4,13 @@ project: MindAttic.Authentication
 code: AUTH
 layer: stories
 status: living
-updated: 2026-06-07
+updated: 2026-10-03
 ---
 
 # MindAttic.Authentication — User Stories
-> ✅ done (shipped & tested) · 🟡 partial · ⬜ planned · 🗑️ cut. Every ✅ cites its verifying test.
+> ✅ done (shipped & tested) · 🟡 partial · ⬜ planned. Every ✅ cites its verifying test.
 > Personas: **U** = end user of a consuming app · **Admin** = elevated operator · **Host** = the app developer adopting the library · **Op** = the secrets/deployment operator.
-> Status reflects the 2026-06-07 run: build clean, 184/184 tests green ([BIBLE §6](BIBLE.md#AUTH-§6)).
+> Status reflects the 2026-10-03 run: 196/196 tests green ([BIBLE §6](BIBLE.md#AUTH-§6)).
 
 ## Epic A — Password storage
 - **AUTH-US-A1 ✅** As a Host, I can store passwords as Argon2id+pepper so a DB-only breach yields nothing crackable. *Given a password, When hashed, Then the result is a canonical argon2id PHC string with a random salt and verifies back.* *(verified by `Argon2idPasswordHasherTests.Hash_ThenVerify_Succeeds_AndDoesNotNeedRehashAtCurrentParams`, `Argon2idPasswordHasherTests.Hash_UsesRandomSalt_SoSamePasswordHashesDiffer`.)*
@@ -20,6 +20,7 @@ updated: 2026-06-07
 ## Epic B — Secrets (Vault contract)
 - **AUTH-US-B1 ✅** As a Host, a required secret that is missing throws rather than silently becoming empty, so auth fails closed. *(verified by `ConfigAuthSecretsTests.GetRequired_Missing_Throws`, `ConfigAuthSecretsTests.GetRequired_Blank_Throws_NeverCoercesToEmpty`.)*
 - **AUTH-US-B2 ✅** As a Host, a present secret resolves and an optional absent secret returns null (not throw). *(verified by `ConfigAuthSecretsTests.GetRequired_Present_ReturnsValue`, `ConfigAuthSecretsTests.GetOptional_Missing_ReturnsNull`, `ConfigAuthSecretsTests.GetOptional_Present_ReturnsValue`.)*
+- **AUTH-US-B3 ✅** As a Host on Azure App Service for Linux, a secret whose setting name the platform rewrote (e.g. pepper.v1 arrives as pepper_v1) still resolves; an exact name wins, and two keys differing only by punctuation fail rather than guess. *(verified by `ConfigAuthSecretsLinuxNamingTests.MangledLinuxName_StillResolves`, `ConfigAuthSecretsLinuxNamingTests.ExactNameStillWins_AndCostsNoScan`, `ConfigAuthSecretsLinuxNamingTests.TwoKeysDifferingOnlyByPunctuation_RefuseToGuess`.)*
 
 ## Epic C — Brute-force, lockout & enumeration
 - **AUTH-US-C1 ✅** As a Host, repeated failures trigger persistent exponential backoff matching the spec curve, surviving restart. *(verified by `AccountLockoutServiceTests.BackoffFor_MatchesSpecCurve`, `AccountLockoutServiceTests.RecordFailure_BelowThreshold_StaysAllowed`.)*
@@ -31,7 +32,7 @@ updated: 2026-06-07
 ## Epic D — MFA (TOTP + recovery)
 - **AUTH-US-D1 ✅** As a U, my TOTP code validates per RFC 6238 within the ±1 window. *(verified by `TotpServiceTests.Validate_MatchesRfc6238TestVectors`, `TotpServiceTests.Validate_AcceptsCodeWithinWindow`.)*
 - **AUTH-US-D2 ✅** As a U, a replayed TOTP step is rejected so a captured code can't be reused. *(verified by `TotpServiceTests.Validate_RejectsReplayedStep`.)*
-- **AUTH-US-D3 🟡** As a U, I can enroll MFA (verify-before-enable) and receive single-use recovery codes. *`MfaEnrollmentService` is implemented and compiles; not yet covered by a dedicated unit test.* (downgraded to 🟡 — no test names it.)
+- **AUTH-US-D3 🟡** As a U, I can enroll MFA (verify-before-enable) and receive single-use recovery codes. *`MfaEnrollmentService` is implemented and compiles; not yet covered by a dedicated unit test.*
 
 ## Epic E — Password policy, change & reset
 - **AUTH-US-E1 ✅** As a U, my password is rejected if too short/too long/blank per NIST policy. *(verified by `PasswordPolicyTests.TooShort_IsRejected`, `PasswordPolicyTests.TooLong_IsRejected`, `PasswordPolicyTests.Null_IsRejected`.)*
@@ -49,13 +50,9 @@ updated: 2026-06-07
 - **AUTH-US-G4 🟡** As a Host, first-run bootstrap seeds an admin only with a Vault bootstrap token, race-safe, no defaults. *`AuthBootstrapper` implemented; no concurrency test yet.*
 
 ## Priority backlog
-Dependency-ordered toward the headline goal (one engine adopted by all three apps):
-1. ⬜ **AUTH-US-E4** — Wire email-delivered reset end-to-end through `IAuthEmailSender`/MindAttic.Psst (consume token → rehash → no auto-login). (depends on E2)
-2. ⬜ **AUTH-US-G5** — Add the fail-closed `IStartupFilter` integration test asserting middleware order. (hardens G2)
+Dependency-ordered toward the headline goal (one hardened engine for every consuming app — Ideas, IdiotProof, Prose, Tutor):
+1. ⬜ **AUTH-US-E4** — Ship a real `IAuthEmailSender` (e.g. a MindAttic.Psst email adapter) so reset links reach users; today every consumer runs the log-only `LoggingAuthEmailSender`. (depends on E2)
+2. ⬜ **AUTH-US-G5** — Add a fail-closed `IStartupFilter` that asserts middleware order, with an integration test. (hardens G2)
 3. ⬜ **AUTH-US-F3** — Provisioning CLI emitting CSPRNG pepper/KEK/reset-key (see [RFC 0001](rfc/0001-provisioning-cli.md)). (depends on B1/B2)
 4. ⬜ **AUTH-US-F4** — Signed, deterministic NuGet pack with committed `packages.lock.json`.
-5. ⬜ **AUTH-US-G6** — Adopt into **Prose**, then **Ideas** (+ Ideas Admin Users UI), then **Tutor**; each subscriber references the version and builds ([AUTH-LAW-7](BIBLE.md#AUTH-LAW-7)).
-6. ⬜ **AUTH-US-D4** — WebAuthn/FIDO2 (v2, additive) to close the accepted AITM residual.
-
-### Audit log
-No story has had its original ask changed or narrowed since inception. This file is the first formal capture of the stories (previously implicit in `README.md` and `docs/SECURITY_SPEC.md`); the README's ✅/🔨/📋 markers were reconciled to the verified test evidence above — anything the README marked ✅ that lacks an isolated unit test was downgraded here to 🟡 (Epics D3, E3, G1–G4) per [AUTH-§8](BIBLE.md#AUTH-§8). The original README spec remains verbatim in `README.md` (original spec — audit log).
+5. ⬜ **AUTH-US-D4** — WebAuthn/FIDO2 (additive, a future major) to close the accepted AITM residual.

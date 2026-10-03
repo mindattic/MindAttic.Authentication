@@ -113,7 +113,7 @@ pre:hover .cpbtn{opacity:1}
 <h1 id="mindatticauthentication">MindAttic.Authentication</h1>
 <p>Shared authentication for MindAttic's ASP.NET Core apps as one Razor Class Library: Argon2id passwords, TOTP MFA, secure reset and audit logging, built to OWASP ASVS L2 and NIST SP 800-63B AAL2.</p>
 <p><img src="https://img.shields.io/badge/language-C%23-239120" alt="C#"> <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET"> <img src="https://img.shields.io/badge/package-Razor%20Class%20Library-5C2D91" alt="Razor Class Library"> <img src="https://img.shields.io/badge/version-4.0.0-blue" alt="Version"> <img src="https://img.shields.io/badge/tests-196%20passing-brightgreen" alt="Tests"> <img src="https://img.shields.io/badge/hashing-Argon2id-555555" alt="Argon2id"></p>
-<pre><code class="language-text">                       consuming app (Ideas / Prose / Tutor / ...)
+<pre><code class="language-text">                       consuming app (Ideas / Prose / Tutor / IdiotProof)
                                    |  PackageReference (NuGet)
    +-------------------------------v--------------------------------------+
    |                    MindAttic.Authentication (RCL, net10.0)           |
@@ -136,36 +136,14 @@ pre:hover .cpbtn{opacity:1}
 <p>This is a library, so there is no app to screenshot. Install it as the NuGet package <code>MindAttic.Authentication</code> from the MindAttic local feed (see <a href="#building-and-testing">Building and testing</a>).</p>
 <h2 id="why">Why</h2>
 <ul>
-<li>Stop hand-rolling login in every app: one engine gives Ideas, Prose and Tutor the same hardened sign-in, MFA, reset and audit trail.</li>
+<li>Stop hand-rolling login in every app: one engine gives MindAttic.Ideas, IdiotProof, Prose and Tutor the same hardened sign-in, MFA, reset and audit trail.</li>
 <li>Survive a database breach: passwords are Argon2id over a peppered HMAC, so a stolen table alone is not enough to crack them.</li>
 <li>Give attackers nothing to enumerate: login, MFA and reset answer with the same content and timing whether or not the account exists.</li>
 <li>Make admins prove it twice: the Admin role is forced through TOTP enrollment before it reaches protected pages.</li>
 <li>Upgrade old users silently: legacy bcrypt and SHA-256 hashes verify once, then re-hash to Argon2id on the next login.</li>
 <li>Fail closed, not open: a missing secret or missing production key-ring wiring stops startup instead of running insecurely.</li>
 </ul>
-<p>A security audit of the apps this library replaces found divergent, partly critical, hand-rolled auth:</p>
-<table><thead><tr>
-<th>App</th>
-<th>Verdict</th>
-<th>Worst issues</th>
-</tr></thead><tbody>
-<tr>
-<td>Tutor</td>
-<td>critically broken</td>
-<td>plain SHA-256 with no salt; hardcoded admin; no sessions, lockout or MFA</td>
-</tr>
-<tr>
-<td>Prose</td>
-<td>soft</td>
-<td>BCrypt, but a hardcoded default password, a dev-auto-login middleware that could fire in production, volatile in-memory lockout, 30-day sliding sessions, no MFA</td>
-</tr>
-<tr>
-<td>Ideas</td>
-<td>minimal</td>
-<td>BCrypt, but SecurityStamp revalidation unwired, no lockout or MFA</td>
-</tr>
-</tbody></table>
-<p>Common gaps across all three: no MFA, no audit log, no breached-password check, secrets not Vault-backed, and three separate implementations to keep correct. The design came from an adversarial review: seven independent attack lenses (crypto, session, lockout and enumeration, MFA, secrets and Vault, policy and recovery, Blazor and packaging), a synthesized spec, then a red-team pass. The full rationale, control-by-control OWASP and NIST mapping and residual-risk register are in <a href="docs/SECURITY%5FSPEC.md"><code>docs/SECURITY_SPEC.md</code></a>.</p>
+<p>The design came from an adversarial review: seven independent attack lenses (crypto, session, lockout and enumeration, MFA, secrets and Vault, policy and recovery, Blazor and packaging), a synthesized spec, then a red-team pass. The full rationale, control-by-control OWASP and NIST mapping and residual-risk register are in <a href="docs/SECURITY%5FSPEC.md"><code>docs/SECURITY_SPEC.md</code></a>.</p>
 <h2 id="features">Features</h2>
 <p>The design target, as stated in <a href="docs/BIBLE.md">docs/BIBLE.md</a>: OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker and a future full database breach. Verified-by-test claims are cited story by story in <a href="docs/USER%5FSTORIES.md"><code>docs/USER_STORIES.md</code></a>.</p>
 <h3 id="password-storage">Password storage</h3>
@@ -399,9 +377,9 @@ dotnet pack src/MindAttic.Authentication/MindAttic.Authentication.csproj -c Rele
 <ul>
 <li><code>dotnet test MindAttic.Authentication.sln -c Debug</code>: 196 of 196 tests pass (NUnit 4, net10.0).</li>
 <li>Package version <code>4.0.0</code>. The 4.0.0 change is the Linux App Service secret-name matching described under Secrets.</li>
-<li>Sibling MindAttic repos reference the package at different versions: MindAttic.Ideas at 4.0.0, Prose and Tutor at 2.0.0, IdiotProof at 3.0.0. Bumping them is each app's own work.</li>
+<li>Four sibling apps use the package, at different versions: MindAttic.Ideas at 4.0.0, IdiotProof at 3.0.0, Prose and Tutor at 2.0.0 (see <a href="docs/BIBLE.md">docs/BIBLE.md</a> section 4.1a). Bumping them is each app's own work.</li>
+<li>No consumer registers its own <code>IAuthEmailSender</code>, so reset emails currently go to the log-only default sender.</li>
 <li>The <code>MindAttic.Vault 1.0.0</code> package reference is declared, but no code in <code>src/</code> uses it: <code>ConfigAuthSecrets</code> resolves every secret through plain <code>IConfiguration</code> by naming convention. A host wires its own Vault-backed (or any) configuration provider that fills that section.</li>
-<li>A cryptographic-primitive extraction into a separate <code>MindAttic.Cryptography</code> package was tried (commits <code>e1b94af</code>, <code>a618b74</code>) and fully reverted (<code>3c9fb8e</code>, whose message names only a hook script but whose diff restores <code>Crypto/</code>, <code>Secrets/</code>, <code>Internal/</code>, the docs and the csproj). Argon2id, PHC, TOTP and secret resolution live in this library.</li>
 <li>Compiles and is exercised indirectly, but has no dedicated unit test of its own: the <code>AuthenticationService</code> login and MFA-confirm pipeline, <code>MfaEnrollmentService</code>, <code>PasswordChangeService</code>, <code>AuthBootstrapper</code>, the Web DI, middleware and endpoint wiring, the revalidating auth-state provider, and the seven Razor components. See <a href="docs/USER%5FSTORIES.md"><code>docs/USER_STORIES.md</code></a>.</li>
 <li>The <code>pack/</code> and <code>pack-out/</code> folders hold stale 1.0.0 and 2.0.0 nupkgs; nothing regenerates them.</li>
 </ul>
@@ -435,7 +413,7 @@ dotnet pack src/MindAttic.Authentication/MindAttic.Authentication.csproj -c Rele
 <tr>
 <td><a href="docs/AMENDMENTS.md">docs/AMENDMENTS.md</a></td>
 <td>L1</td>
-<td>Append-only change log; an amendment wins over the bible</td>
+<td>Pending decisions not yet folded into the bible (normally empty)</td>
 </tr>
 <tr>
 <td><a href="docs/USER%5FSTORIES.md"><code>docs/USER_STORIES.md</code></a></td>
@@ -478,11 +456,6 @@ dotnet pack src/MindAttic.Authentication/MindAttic.Authentication.csproj -c Rele
 <td>Runbook: provisioning, bootstrap, rotation, disaster recovery, email, deployment</td>
 </tr>
 <tr>
-<td><a href="docs/ADOPTION%5FPLAYBOOK.md"><code>docs/ADOPTION_PLAYBOOK.md</code></a></td>
-<td>detail</td>
-<td>Per-app adoption strategy and order (Prose, Ideas, Tutor)</td>
-</tr>
-<tr>
 <td><a href="docs/VERSIONING.md">docs/VERSIONING.md</a></td>
 <td>detail</td>
 <td>The major-only versioning policy</td>
@@ -496,7 +469,7 @@ dotnet pack src/MindAttic.Authentication/MindAttic.Authentication.csproj -c Rele
 <p>Instructions for coding agents working in this repo are in <a href="AGENTS.md">AGENTS.md</a>.</p>
 <h2 id="license">License</h2>
 <p>This repository has no LICENSE file. All rights reserved.</p>
-<p>Part of <a href="https://mindattic.com">MindAttic</a> — see more projects at <a href="https://github.com/mindattic">github.com/mindattic</a>. Related: <a href="https://github.com/mindattic/MindAttic.Vault">MindAttic.Vault</a>, <a href="https://github.com/mindattic/MindAttic.Ideas">MindAttic.Ideas</a>, <a href="https://github.com/mindattic/Prose">Prose</a>, <a href="https://github.com/mindattic/Tutor">Tutor</a>.</p>
+<p>Part of <a href="https://mindattic.com">MindAttic</a> — see more projects at <a href="https://github.com/mindattic">github.com/mindattic</a>. Related: <a href="https://github.com/mindattic/MindAttic.Vault">MindAttic.Vault</a>, <a href="https://github.com/mindattic/MindAttic.Ideas">MindAttic.Ideas</a>, <a href="https://github.com/mindattic/IdiotProof">IdiotProof</a>, <a href="https://github.com/mindattic/Prose">Prose</a>, <a href="https://github.com/mindattic/Tutor">Tutor</a>.</p>
 
     <p class="codex-footer">Generated 2026-10-03 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
   </main>

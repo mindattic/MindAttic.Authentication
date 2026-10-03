@@ -17,8 +17,7 @@ try {
 [MindAttic.Authentication - CODEX DIGEST | SOURCE OF TRUTH]
 The following is the authoritative project canon (generated from docs/BIBLE.md).
 Treat it as ground truth for what this library IS, is NOT, and its Laws. When the
-digest and your assumptions disagree, the digest wins. Full detail: docs/BIBLE.md;
-amendments (which win over the bible) in docs/AMENDMENTS.md.
+digest and your assumptions disagree, the digest wins. Full detail: docs/BIBLE.md.
 
 "@
   $content = $preamble + $digest

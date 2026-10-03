@@ -1,12 +1,12 @@
 ﻿# MindAttic.Authentication — Security Spec (Legion-hardened, red-teamed)
 
-> Adversarially reviewed against OWASP ASVS L2/L3 + NIST SP 800-63B AAL2 (7 attack lenses → synthesis → red-team). Red-team verdict: build to this after folding the must-fix items.
+> Adversarially reviewed against OWASP ASVS L2/L3 + NIST SP 800-63B AAL2 (7 attack lenses → synthesis → red-team). This is the design target and its rationale; not every control below is built. What is built and verified is in [`BIBLE.md`](BIBLE.md) §6 and [`USER_STORIES.md`](USER_STORIES.md).
 
 ---
 
 # MindAttic.Authentication â€” Hardened Implementation-Ready Spec (v1)
 
-net10.0 Razor Class Library, packaged as a signed NuGet, depends on `MindAttic.Vault`. Adopted by MindAttic.Ideas, Prose, Tutor. Target: OWASP ASVS L2 (L3 where noted), NIST SP 800-63B AAL2, OWASP Auth/Session/Password-Storage cheat sheets. Threat model: skilled attacker + future full DB breach; the library must be secure even when the host misconfigures (secure-by-default, fail-closed on secrets).
+net10.0 Razor Class Library, packaged as a NuGet (signing is planned), reads its secrets through configuration under `MindAttic:Vault:Security`. Consumed by MindAttic.Ideas, IdiotProof, Prose and Tutor. Target: OWASP ASVS L2 (L3 where noted), NIST SP 800-63B AAL2, OWASP Auth/Session/Password-Storage cheat sheets. Threat model: skilled attacker + future full DB breach; the library must be secure even when the host misconfigures (secure-by-default, fail-closed on secrets).
 
 ## 0. Conflict resolutions (decided here, do not relitigate)
 
@@ -366,9 +366,6 @@ internal sealed class AuthPasswordResetTokenConfiguration : IEntityTypeConfigura
 - LIBRARY 11 â€” Components: MaLogin/MaLogout/MaChangePassword/MaMfaSetup/MaMfaChallenge/MaAccount (presentation-only static SSR forms), AuthUiOptions constrained branding, returnUrl resolver.
 - LIBRARY 12 â€” Provisioning tool: separate 'dotnet run --provision' entrypoint generating CSPRNG pepper/dp-kek/reset-token-key/bootstrap-token into the dev file store; prints values for prod operator KV seeding (never writes prod).
 - LIBRARY 13 â€” Packaging: deterministic build, SourceLink, embedded PDB, package signing, exact-pin MindAttic.Vault, packages.lock.json, publish to private feed.
-- ADOPT 1 â€” Prose (greenest donor besides Frontend, highest-risk gaps): add ApplyMindAtticAuthConfiguration to its DbContext, dotnet ef migrations add, AddMindAtticAuthentication(o.AppName='Prose'), remove DevAutoLoginMiddleware + hardcoded default password + in-memory lockout, map endpoints, seed via Vault bootstrap token.
-- ADOPT 2 â€” Ideas: same wiring (o.AppName='Ideas', ConfigureAdditionalPolicies AuthorRawMarkup), plus one-time data migration mapping Core.Entities.User -> AuthUser (carry bcrypt hashes with LegacyHashScheme='bcrypt' for rehash-on-login), set ReturnUrlPolicy.AllowList, replace 30-day sliding sessions.
-- ADOPT 3 â€” Tutor (cautionary baseline, most work): replace plain SHA256 LocalAuthController entirely, migrate any existing 'aaa' admin to a forced-reset row, wire full library, remove hardcoded creds, add sessions/lockout/MFA.
 - POST â€” Per-deployment ops (out of library): seed pepper/DP-keys/reset-key/bootstrap-token into Key Vault, configure ProtectKeysWithAzureKeyVault, UseHsts, edge WAF/rate-limit, NTP, ForwardedHeaders KnownProxies, key-age monitoring/alerting, DR runbook for pepper/KEK backup.
 
 
@@ -391,10 +388,10 @@ internal sealed class AuthPasswordResetTokenConfiguration : IEntityTypeConfigura
 - Circuit + cookie revalidation interval: 1 minute chosen (bounds revoked-admin window to <=60s at cost of one indexed stamp read/user/minute). Confirm the DB-load vs staleness trade; instant circuit-kill (CircuitHandler abort) is deferred to a later version.
 - Admin out-of-band MFA reset (all recovery codes lost): the library audits the operator action but cannot enforce operator identity-proofing rigor. The owner MUST define the human runbook for verifying the requester (this is a real MFA-bypass channel).
 - CAPTCHA provider: Turnstile assumed as default CaptchaProviderId. Confirm provider choice and whether the global cluster-wide anomaly brake is enabled by default.
-- Non-Azure prod hosting: ProtectKeysWithAzureKeyVault is Azure-specific. If any of the three apps deploy off-Azure, the owner must choose the at-rest DP wrapping mechanism (ProtectKeysWithCertificate) per deployment, else the key ring risks plaintext-at-rest.
+- Non-Azure prod hosting: ProtectKeysWithAzureKeyVault is Azure-specific. If any consuming app deploys off-Azure, the owner must choose the at-rest DP wrapping mechanism (ProtectKeysWithCertificate) per deployment, else the key ring risks plaintext-at-rest.
 - Concurrent-session / impossible-travel RESPONSE policy: the AuthSession table enables detection, but auto-revoke vs alert-only is a product decision left to the owner (without a policy the data is forensic-only).
 - Dormant-account legacy bcrypt rows stay crackable (at bcrypt-12 cost) from a DB-only breach until each user next logs in. Decide whether to run a proactive forced-reset campaign for dormant accounts rather than relying solely on next-login upgrade.
-- Cross-app SSO is OUT of scope for v1 (per-app SetApplicationName isolation). Confirm the three apps are intended as separate trust boundaries (no shared login).
+- Cross-app SSO is OUT of scope for v1 (per-app SetApplicationName isolation). Each consuming app is a separate trust boundary (no shared login).
 
 
 # Residual risks accepted
@@ -416,8 +413,8 @@ The spec is strong and, after the six mustFix items, ready to build to. It corre
 ---
 
 # Ratified owner decisions (2026-06-04)
-- **MFA:** TOTP + recovery codes in v1; WebAuthn/FIDO2 deferred to v2 (additive). AITM relay accepted as v1 residual.
+- **MFA:** TOTP + recovery codes; WebAuthn/FIDO2 is a planned additive major. AITM relay is an accepted residual until then.
 - **Existing-user cutover:** carry legacy hashes, transparently upgrade to Argon2id+pepper on next login; proactive forced-reset for dormant accounts (no indefinite weak-hash residual).
 - **HIBP:** fail-open online + bundled offline fallback + audited skip.
-- **Trust boundaries:** the three apps are SEPARATE (per-app DataProtection isolation); no cross-app SSO in v1.
+- **Trust boundaries:** each consuming app is SEPARATE (per-app DataProtection isolation); no cross-app SSO.
 - Plus all 6 red-team must-fixes are folded in as non-negotiable.

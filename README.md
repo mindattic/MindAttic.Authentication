@@ -5,7 +5,7 @@ Shared authentication for MindAttic's ASP.NET Core apps as one Razor Class Libra
 ![C#](https://img.shields.io/badge/language-C%23-239120) ![.NET](https://img.shields.io/badge/.NET-10-512BD4) ![Razor Class Library](https://img.shields.io/badge/package-Razor%20Class%20Library-5C2D91) ![Version](https://img.shields.io/badge/version-4.0.0-blue) ![Tests](https://img.shields.io/badge/tests-196%20passing-brightgreen) ![Argon2id](https://img.shields.io/badge/hashing-Argon2id-555555)
 
 ```text
-                       consuming app (Ideas / Prose / Tutor / ...)
+                       consuming app (Ideas / Prose / Tutor / IdiotProof)
                                    |  PackageReference (NuGet)
    +-------------------------------v--------------------------------------+
    |                    MindAttic.Authentication (RCL, net10.0)           |
@@ -31,22 +31,14 @@ This is a library, so there is no app to screenshot. Install it as the NuGet pac
 
 ## Why
 
-- Stop hand-rolling login in every app: one engine gives Ideas, Prose and Tutor the same hardened sign-in, MFA, reset and audit trail.
+- Stop hand-rolling login in every app: one engine gives MindAttic.Ideas, IdiotProof, Prose and Tutor the same hardened sign-in, MFA, reset and audit trail.
 - Survive a database breach: passwords are Argon2id over a peppered HMAC, so a stolen table alone is not enough to crack them.
 - Give attackers nothing to enumerate: login, MFA and reset answer with the same content and timing whether or not the account exists.
 - Make admins prove it twice: the Admin role is forced through TOTP enrollment before it reaches protected pages.
 - Upgrade old users silently: legacy bcrypt and SHA-256 hashes verify once, then re-hash to Argon2id on the next login.
 - Fail closed, not open: a missing secret or missing production key-ring wiring stops startup instead of running insecurely.
 
-A security audit of the apps this library replaces found divergent, partly critical, hand-rolled auth:
-
-| App | Verdict | Worst issues |
-| --- | --- | --- |
-| Tutor | critically broken | plain SHA-256 with no salt; hardcoded admin; no sessions, lockout or MFA |
-| Prose | soft | BCrypt, but a hardcoded default password, a dev-auto-login middleware that could fire in production, volatile in-memory lockout, 30-day sliding sessions, no MFA |
-| Ideas | minimal | BCrypt, but SecurityStamp revalidation unwired, no lockout or MFA |
-
-Common gaps across all three: no MFA, no audit log, no breached-password check, secrets not Vault-backed, and three separate implementations to keep correct. The design came from an adversarial review: seven independent attack lenses (crypto, session, lockout and enumeration, MFA, secrets and Vault, policy and recovery, Blazor and packaging), a synthesized spec, then a red-team pass. The full rationale, control-by-control OWASP and NIST mapping and residual-risk register are in [`docs/SECURITY_SPEC.md`](docs/SECURITY%5FSPEC.md).
+The design came from an adversarial review: seven independent attack lenses (crypto, session, lockout and enumeration, MFA, secrets and Vault, policy and recovery, Blazor and packaging), a synthesized spec, then a red-team pass. The full rationale, control-by-control OWASP and NIST mapping and residual-risk register are in [`docs/SECURITY_SPEC.md`](docs/SECURITY%5FSPEC.md).
 
 ## Features
 
@@ -272,9 +264,9 @@ Checked against this working tree on 2026-10-03:
 
 - `dotnet test MindAttic.Authentication.sln -c Debug`: 196 of 196 tests pass (NUnit 4, net10.0).
 - Package version `4.0.0`. The 4.0.0 change is the Linux App Service secret-name matching described under Secrets.
-- Sibling MindAttic repos reference the package at different versions: MindAttic.Ideas at 4.0.0, Prose and Tutor at 2.0.0, IdiotProof at 3.0.0. Bumping them is each app's own work.
+- Four sibling apps use the package, at different versions: MindAttic.Ideas at 4.0.0, IdiotProof at 3.0.0, Prose and Tutor at 2.0.0 (see [docs/BIBLE.md](docs/BIBLE.md) section 4.1a). Bumping them is each app's own work.
+- No consumer registers its own `IAuthEmailSender`, so reset emails currently go to the log-only default sender.
 - The `MindAttic.Vault 1.0.0` package reference is declared, but no code in `src/` uses it: `ConfigAuthSecrets` resolves every secret through plain `IConfiguration` by naming convention. A host wires its own Vault-backed (or any) configuration provider that fills that section.
-- A cryptographic-primitive extraction into a separate `MindAttic.Cryptography` package was tried (commits `e1b94af`, `a618b74`) and fully reverted (`3c9fb8e`, whose message names only a hook script but whose diff restores `Crypto/`, `Secrets/`, `Internal/`, the docs and the csproj). Argon2id, PHC, TOTP and secret resolution live in this library.
 - Compiles and is exercised indirectly, but has no dedicated unit test of its own: the `AuthenticationService` login and MFA-confirm pipeline, `MfaEnrollmentService`, `PasswordChangeService`, `AuthBootstrapper`, the Web DI, middleware and endpoint wiring, the revalidating auth-state provider, and the seven Razor components. See [`docs/USER_STORIES.md`](docs/USER%5FSTORIES.md).
 - The `pack/` and `pack-out/` folders hold stale 1.0.0 and 2.0.0 nupkgs; nothing regenerates them.
 
@@ -301,7 +293,7 @@ This repo follows the MindAttic Codex documentation standard; a fact lives in ex
 | Doc | Layer | What it covers |
 | --- | --- | --- |
 | [docs/BIBLE.md](docs/BIBLE.md) | L0 | What the system is and is not, architecture, the Laws, verified state |
-| [docs/AMENDMENTS.md](docs/AMENDMENTS.md) | L1 | Append-only change log; an amendment wins over the bible |
+| [docs/AMENDMENTS.md](docs/AMENDMENTS.md) | L1 | Pending decisions not yet folded into the bible (normally empty) |
 | [`docs/USER_STORIES.md`](docs/USER%5FSTORIES.md) | L2 | Every story cites its verifying NUnit test |
 | [docs/rfc/](docs/rfc) | rfc | Design notes not yet graduated (currently the provisioning-CLI proposal) |
 | [docs/BIBLE.digest.md](docs/BIBLE.digest.md) | generated | Produced by `tools/codex.ps1 digest`; never hand-edited |
@@ -310,7 +302,6 @@ This repo follows the MindAttic Codex documentation standard; a fact lives in ex
 | [docs/INTEGRATION.md](docs/INTEGRATION.md) | detail | Step-by-step host adoption |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | detail | Every config key, secret and option, with an example appsettings.json |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | detail | Runbook: provisioning, bootstrap, rotation, disaster recovery, email, deployment |
-| [`docs/ADOPTION_PLAYBOOK.md`](docs/ADOPTION%5FPLAYBOOK.md) | detail | Per-app adoption strategy and order (Prose, Ideas, Tutor) |
 | [docs/VERSIONING.md](docs/VERSIONING.md) | detail | The major-only versioning policy |
 | [docs/README.md](docs/README.md) | index | Index of the detail docs |
 
@@ -320,4 +311,4 @@ Instructions for coding agents working in this repo are in [AGENTS.md](AGENTS.md
 
 This repository has no LICENSE file. All rights reserved.
 
-Part of [MindAttic](https://mindattic.com) — see more projects at [github.com/mindattic](https://github.com/mindattic). Related: [MindAttic.Vault](https://github.com/mindattic/MindAttic.Vault), [MindAttic.Ideas](https://github.com/mindattic/MindAttic.Ideas), [Prose](https://github.com/mindattic/Prose), [Tutor](https://github.com/mindattic/Tutor).
+Part of [MindAttic](https://mindattic.com) — see more projects at [github.com/mindattic](https://github.com/mindattic). Related: [MindAttic.Vault](https://github.com/mindattic/MindAttic.Vault), [MindAttic.Ideas](https://github.com/mindattic/MindAttic.Ideas), [IdiotProof](https://github.com/mindattic/IdiotProof), [Prose](https://github.com/mindattic/Prose), [Tutor](https://github.com/mindattic/Tutor).
