@@ -34,7 +34,8 @@ public sealed class PasswordResetService(
     IAuthEmailSender email,
     IAuthAuditWriter audit,
     IOptions<AuthResetOptions> resetOptions,
-    TimeProvider clock) : IPasswordResetService
+    TimeProvider clock,
+    IAuthSecurityAlerts? alerts = null) : IPasswordResetService
 {
     private readonly AuthResetOptions _o = resetOptions.Value;
 
@@ -110,6 +111,7 @@ public sealed class PasswordResetService(
         await db.SaveChangesAsync(ct);
         await audit.WriteAsync(new AuthAuditEntry(AuthEventType.PasswordReset, AuthOutcome.Success, AuthReasonCode.Ok,
             user.Id, user.UserName), ct);
+        if (alerts is not null) await alerts.NotifyAsync(user, SecurityAlertKind.PasswordReset, ct: ct);
         return new(true, null);   // NOTE: no auto-login — user signs in fresh (→ MFA).
     }
 

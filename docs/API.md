@@ -5,7 +5,7 @@ For the *why* behind each control see [`SECURITY_SPEC.md`](SECURITY_SPEC.md); fo
 [`INTEGRATION.md`](INTEGRATION.md); for config keys see [`CONFIGURATION.md`](CONFIGURATION.md).
 
 > **Versioning:** major-version-only. The assembly/package version is `4.0.0`; the next release is
-> `5.0.0` — never a minor or patch bump. The frozen behaviors below only change across
+> `6.0.0` — never a minor or patch bump. The frozen behaviors below only change across
 > a major bump. See [`VERSIONING.md`](VERSIONING.md).
 
 ---
@@ -182,6 +182,15 @@ public sealed class SmtpAuthEmailSender : BackgroundService, IAuthEmailSender { 
     public TimeSpan RetryDelay { get; init; }
 }
 public sealed class AuthEmailStartup : IHostedService;   // starts the SMTP queue; warns when mail will not be delivered
+
+// Security alerts. Registered by AddMindAtticAuthEmail; the account services take it as an optional last
+// constructor parameter (IAuthSecurityAlerts? alerts = null) and call it after the change is saved.
+public enum SecurityAlertKind { PasswordChanged, PasswordReset, PasswordResetByAdmin, MfaEnabled, RecoveryCodeUsed,
+    AccountLocked, NewDeviceSignIn, EmailChanged, AccountDeactivated }
+public interface IAuthSecurityAlerts {
+    Task NotifyAsync(AuthUser user, SecurityAlertKind kind, string? userAgent = null, string? toEmail = null, CancellationToken ct = default);
+}
+public sealed class AuthSecurityAlerts(IAuthEmailSender email, TimeProvider clock, ILogger<AuthSecurityAlerts> logger) : IAuthSecurityAlerts;
 ```
 
 ## 8. Web wiring — `MindAttic.Authentication.Web`
@@ -195,6 +204,7 @@ public static IServiceCollection AddMindAtticAuthEmail(this IServiceCollection s
 public static IApplicationBuilder UseMindAtticAuthentication(this IApplicationBuilder app);  // authn→authz→scoped CSP
 public static IEndpointRouteBuilder MapMindAtticAuthEndpoints(this IEndpointRouteBuilder endpoints);
 //   POST /_ma-auth/login · /mfa-challenge · /logout · /change-password (RequireAuthorization)
+//        /reset/request (→ /login?reset=sent) · /reset/confirm (→ /login?reset=ok, or back to ResetPath?error=1&token=…)
 
 public sealed class MaRevalidatingAuthenticationStateProvider : RevalidatingServerAuthenticationStateProvider;
 public static class MindAtticAuthAppExtensions { public const string CspNonceItem = "ma-csp-nonce"; }

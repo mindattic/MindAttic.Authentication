@@ -143,7 +143,7 @@ public static class AuthEndpoints
     }
 
     private static async Task<IResult> ResetConfirmAsync(
-        HttpContext http, IAntiforgery antiforgery, MaSvc.IPasswordResetService reset)
+        HttpContext http, IAntiforgery antiforgery, MaSvc.IPasswordResetService reset, IOptions<AuthResetOptions> resetOptions)
     {
         if (!await ValidateAntiforgeryAsync(http, antiforgery)) return Results.BadRequest();
         var form = await http.Request.ReadFormAsync(http.RequestAborted);
@@ -151,7 +151,7 @@ public static class AuthEndpoints
         var result = await reset.ConfirmAsync(token, form["newPassword"].ToString(), http.RequestAborted);
         return Results.Redirect(result.Ok
             ? "/login?reset=ok"
-            : $"/account/reset?error=1&token={Uri.EscapeDataString(token)}");
+            : $"{resetOptions.Value.ResetPath}?error=1&token={Uri.EscapeDataString(token)}");   // back to the host's reset page
     }
 
     private static async Task<bool> ValidateAntiforgeryAsync(HttpContext http, IAntiforgery antiforgery)

@@ -31,7 +31,8 @@ public sealed class MfaEnrollmentService(
     IDataProtectionProvider dpProvider,
     IAuthAuditWriter audit,
     IOptions<MfaOptions> mfaOptions,
-    TimeProvider clock) : IMfaEnrollmentService
+    TimeProvider clock,
+    IAuthSecurityAlerts? alerts = null) : IMfaEnrollmentService
 {
     private readonly IDataProtector _totpProtector = dpProvider.CreateProtector("MindAttic.Authentication.Totp.v1");
     private readonly MfaOptions _mfa = mfaOptions.Value;
@@ -92,6 +93,7 @@ public sealed class MfaEnrollmentService(
 
         await audit.WriteAsync(new AuthAuditEntry(AuthEventType.MfaEnroll, AuthOutcome.Success, AuthReasonCode.Ok,
             user.Id, user.UserName), ct);
+        if (alerts is not null) await alerts.NotifyAsync(user, SecurityAlertKind.MfaEnabled, ct: ct);
         return new(true, codes, null);
     }
 

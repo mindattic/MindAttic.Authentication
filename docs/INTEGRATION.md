@@ -17,7 +17,7 @@ middleware + endpoints, (4) adding login/MFA/account pages, and (5) provisioning
 <add key="LocalNuGet" value="C:\LocalNuGet" />
 ```
 ```xml
-<PackageReference Include="MindAttic.Authentication" Version="5.0.0" />
+<PackageReference Include="MindAttic.Authentication" Version="6.0.0" />
 <PackageReference Include="MindAttic.Vault" Version="5.0.0" />   <!-- only if the host fills config through Vault; the library itself does not depend on it -->
 ```
 
@@ -107,7 +107,11 @@ app.Run();
 }
 ```
 Add `/mfa` (`<MaMfaChallenge/>`), `/account/change-password` (`<MaChangePassword/>`), and
-`/account/mfa/setup` (`<MaMfaSetup/>`, rendered `@rendermode InteractiveServer`). Protect admin pages with
+`/account/mfa/setup` (`<MaMfaSetup/>`, rendered `@rendermode InteractiveServer`). For self-service reset, add an
+anonymous static page at `/forgot-password` hosting `<MaForgotPassword/>` (link it from `/login`) and one at the
+`ResetPath` (default `/account/reset`) hosting `<MaResetPassword Token="@Token" Error="@(Error == 1)"/>` with
+`Token`/`Error` bound by `[SupplyParameterFromQuery]`; show `?reset=sent` / `?reset=ok` on `/login`; and set
+`MindAttic:Auth:Reset:PublicBaseUrl` to the app's public https origin. Protect admin pages with
 `@attribute [Authorize(Policy = MaPolicies.Admin)]` (role **+** MFA).
 
 ## 5. Email channel

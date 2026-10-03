@@ -191,6 +191,8 @@ public static class MindAtticAuthExtensions
             ? sp.GetRequiredService<LoggingAuthEmailSender>()
             : sp.GetRequiredService<SmtpAuthEmailSender>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<Microsoft.Extensions.Hosting.IHostedService, AuthEmailStartup>());
+        // Security alerts (password changed, MFA enabled, lockout, new device, ...) go through the same sender.
+        services.TryAddSingleton<IAuthSecurityAlerts, AuthSecurityAlerts>();
         return services;
     }
 }

@@ -38,7 +38,8 @@ public interface IUserAdminService
 }
 
 public sealed class UserAdminService(
-    IAuthDataContext db, IPasswordHasher hasher, IPasswordPolicy policy, IAuthAuditWriter audit, TimeProvider clock)
+    IAuthDataContext db, IPasswordHasher hasher, IPasswordPolicy policy, IAuthAuditWriter audit, TimeProvider clock,
+    IAuthSecurityAlerts? alerts = null)
     : IUserAdminService
 {
     public async Task<IReadOnlyList<AuthUserSummary>> ListAsync(CancellationToken ct = default) =>
@@ -93,9 +94,11 @@ public sealed class UserAdminService(
         if (user is null) return AdminActionResult.Fail("User not found.");
         if (!active && await WouldRemoveLastAdminAsync(user, user.Role, active: false, ct))
             return AdminActionResult.Fail("Can't deactivate the last active administrator.");
+        var wasActive = user.IsActive;
         user.IsActive = active;
         Rotate(user);   // active=false kills sessions on next revalidate
         await db.SaveChangesAsync(ct);
+        if (wasActive && !active && alerts is not null) await alerts.NotifyAsync(user, SecurityAlertKind.AccountDeactivated, ct: ct);
         return AdminActionResult.Success;
     }
 
@@ -103,11 +106,16 @@ public sealed class UserAdminService(
     {
         var user = await db.AuthUsers.FirstOrDefaultAsync(u => u.Id == id, ct);
         if (user is null) return AdminActionResult.Fail("User not found.");
+        var oldEmail = user.Email;
+        var emailChanged = !string.Equals(user.NormalizedEmail, NormalizeEmail(email), StringComparison.Ordinal);
         user.Email = email;
         user.NormalizedEmail = NormalizeEmail(email);
         user.DisplayName = displayName;
         user.NormalizedDisplayName = NormalizeDisplayName(displayName);
         await db.SaveChangesAsync(ct);
+        // Tell the OLD address: if an attacker swapped the email, the owner still hears about it.
+        if (emailChanged && !string.IsNullOrWhiteSpace(oldEmail) && alerts is not null)
+            await alerts.NotifyAsync(user, SecurityAlertKind.EmailChanged, toEmail: oldEmail, ct: ct);
         return AdminActionResult.Success;
     }
 
@@ -126,6 +134,7 @@ public sealed class UserAdminService(
         Rotate(user);
         await db.SaveChangesAsync(ct);
         await audit.WriteAsync(new AuthAuditEntry(AuthEventType.ChangePassword, AuthOutcome.Success, AuthReasonCode.Ok, user.Id, user.UserName), ct);
+        if (alerts is not null) await alerts.NotifyAsync(user, SecurityAlertKind.PasswordResetByAdmin, ct: ct);
         return AdminActionResult.Success;
     }
 

@@ -43,7 +43,8 @@ public sealed class AuthenticationService(
     IDataProtectionProvider dpProvider,
     IAuthDataContext db,
     IOptions<AuthSessionOptions> sessionOptions,
-    TimeProvider clock) : IAuthenticationService
+    TimeProvider clock,
+    IAuthSecurityAlerts? alerts = null) : IAuthenticationService
 {
     private readonly IDataProtector _totpProtector = dpProvider.CreateProtector("MindAttic.Authentication.Totp.v1");
     private readonly AuthSessionOptions _session = sessionOptions.Value;
@@ -83,6 +84,7 @@ public sealed class AuthenticationService(
         {
             await lockout.RecordFailureAsync(ThrottleScope.Account, userName, ct);
             await lockout.RecordFailureAsync(ThrottleScope.Ip, sourceIp, ct);
+            if (user is { IsActive: true }) await AlertIfLockoutJustStartedAsync(user, userName, userAgent, ct);
             await audit.WriteAsync(new AuthAuditEntry(AuthEventType.Login, AuthOutcome.Failure,
                 user is null ? AuthReasonCode.UnknownUser : (user.IsActive ? AuthReasonCode.BadPassword : AuthReasonCode.Disabled),
                 user?.Id, userName, userName, sourceIp, userAgent), ct);
@@ -137,6 +139,7 @@ public sealed class AuthenticationService(
         {
             await lockout.RecordFailureAsync(ThrottleScope.Account, user.UserName, ct);
             await lockout.RecordFailureAsync(ThrottleScope.Ip, sourceIp, ct);
+            await AlertIfLockoutJustStartedAsync(user, user.UserName, userAgent, ct);
             await audit.WriteAsync(new AuthAuditEntry(AuthEventType.MfaChallenge, AuthOutcome.Failure, AuthReasonCode.MfaBad,
                 user.Id, user.UserName, user.UserName, sourceIp, userAgent), ct);
             return LoginResult.Failed;
@@ -148,6 +151,7 @@ public sealed class AuthenticationService(
         await audit.WriteAsync(new AuthAuditEntry(
             isRecoveryCode ? AuthEventType.RecoveryUsed : AuthEventType.MfaChallenge,
             AuthOutcome.Success, AuthReasonCode.Ok, user.Id, user.UserName, user.UserName, sourceIp, userAgent), ct);
+        if (isRecoveryCode && alerts is not null) await alerts.NotifyAsync(user, SecurityAlertKind.RecoveryCodeUsed, userAgent, ct: ct);
         return new LoginResult(LoginStatus.Success, user.Id, BuildClaims(user, sid, ["pwd", "mfa"]));
     }
 
@@ -183,18 +187,45 @@ public sealed class AuthenticationService(
 
     private async Task<Guid> CreateSessionAsync(AuthUser user, string sourceIp, string userAgent, DateTime now, CancellationToken ct)
     {
+        var ipHash = AuthKeys.HashHex(AuthKeys.CanonicalizeIp(sourceIp));
+        var ua = Trunc(userAgent, 512);
+
+        // "New device" = the account has signed in before, but never from this browser NOR this network.
+        // Requiring both to be new keeps a browser update or a new Wi-Fi from alerting on its own.
+        var newDevice = alerts is not null
+            && await db.AuthSessions.AnyAsync(s => s.AuthUserId == user.Id, ct)
+            && !await db.AuthSessions.AnyAsync(s => s.AuthUserId == user.Id && (s.IpHash == ipHash || s.UserAgent == ua), ct);
+
         var session = new AuthSession
         {
             AuthUserId = user.Id,
             CreatedUtc = now,
             LastSeenUtc = now,
             AbsoluteExpiryUtc = now + _session.AbsoluteTimeout,
-            IpHash = AuthKeys.HashHex(AuthKeys.CanonicalizeIp(sourceIp)),
-            UserAgent = Trunc(userAgent, 512),
+            IpHash = ipHash,
+            UserAgent = ua,
         };
         db.AuthSessions.Add(session);
         await db.SaveChangesAsync(ct);
+        if (newDevice) await alerts!.NotifyAsync(user, SecurityAlertKind.NewDeviceSignIn, userAgent, ct: ct);
         return session.Id;
+    }
+
+    /// <summary>
+    /// Alerts the owner once per run of failures: when the account-scope counter reaches the first count
+    /// that imposes a back-off. Later failures in the same run (and failures against unknown or disabled
+    /// accounts) send nothing, so an attacker cannot use this to flood an inbox.
+    /// </summary>
+    private async Task AlertIfLockoutJustStartedAsync(AuthUser user, string accountKey, string userAgent, CancellationToken ct)
+    {
+        if (alerts is null) return;
+        var keyHash = AuthKeys.Hash(AuthKeys.NormalizeAccount(accountKey));
+        var row = await db.AuthLoginThrottles.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Scope == ThrottleScope.Account && x.KeyHash == keyHash, ct);
+        if (row is null) return;
+        var n = row.ConsecutiveFailures;
+        if (AccountLockoutService.BackoffFor(n) > TimeSpan.Zero && AccountLockoutService.BackoffFor(n - 1) == TimeSpan.Zero)
+            await alerts.NotifyAsync(user, SecurityAlertKind.AccountLocked, userAgent, ct: ct);
     }
 
     private static string Trunc(string? s, int max) => string.IsNullOrEmpty(s) ? "" : (s.Length <= max ? s : s[..max]);

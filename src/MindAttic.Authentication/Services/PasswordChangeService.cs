@@ -21,7 +21,8 @@ public sealed class PasswordChangeService(
     IPasswordHasher hasher,
     IPasswordPolicy policy,
     IAuthAuditWriter audit,
-    TimeProvider clock) : IPasswordChangeService
+    TimeProvider clock,
+    IAuthSecurityAlerts? alerts = null) : IPasswordChangeService
 {
     public async Task<PasswordChangeResult> ChangeAsync(Guid userId, string currentPassword, string newPassword, CancellationToken ct = default)
     {
@@ -57,6 +58,7 @@ public sealed class PasswordChangeService(
         await db.SaveChangesAsync(ct);
         await audit.WriteAsync(new AuthAuditEntry(AuthEventType.ChangePassword, AuthOutcome.Success, AuthReasonCode.Ok,
             user.Id, user.UserName), ct);
+        if (alerts is not null) await alerts.NotifyAsync(user, SecurityAlertKind.PasswordChanged, ct: ct);
         return new(true, null);
     }
 }

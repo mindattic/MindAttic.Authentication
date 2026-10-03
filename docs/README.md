@@ -10,7 +10,7 @@ Exhaustive docs for the shared authentication library used by MindAttic.Ideas, I
 | [`INTEGRATION.md`](INTEGRATION.md) | Step-by-step host adoption: package reference, `IAuthDataContext`, DI/middleware/endpoints, pages, email, secret provisioning, user migration. |
 | [`CONFIGURATION.md`](CONFIGURATION.md) | Every config key + Vault secret + option, with defaults and an example `appsettings.json`. |
 | [`OPERATIONS.md`](OPERATIONS.md) | Runbook: secret provisioning, bootstrap, pepper/DP-key rotation, disaster recovery, auth email (SMTP), Windows deployment, and the red-team-mandated operational must-dos. |
-| [`VERSIONING.md`](VERSIONING.md) | The major-only versioning policy (current `5.0.0`) and what a major bump means. |
+| [`VERSIONING.md`](VERSIONING.md) | The major-only versioning policy (current `6.0.0`) and what a major bump means. |
 
 ## At a glance
 
