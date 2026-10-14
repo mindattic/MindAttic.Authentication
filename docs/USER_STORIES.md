@@ -57,3 +57,12 @@ Dependency-ordered toward the headline goal (one hardened engine for every consu
 2. ⬜ **AUTH-US-F3** — Provisioning CLI emitting CSPRNG pepper/KEK/reset-key (see [RFC 0001](rfc/0001-provisioning-cli.md)). (depends on B1/B2)
 3. ⬜ **AUTH-US-F4** — Signed, deterministic NuGet pack with committed `packages.lock.json`.
 4. ⬜ **AUTH-US-D4** — WebAuthn/FIDO2 (additive, a future major) to close the accepted AITM residual.
+
+## Tickets
+> Permanent log of every change and fix — this repo's ticket system. Rows are append-only: never
+> delete or reword one; only move its Status (open → closed / wont-do) and fill in Ref. Status is
+> a word, not a glyph, so tickets don't count toward the story index. Keep this section last.
+
+| ID | Date | Type | Status | Summary | Ref |
+|---|---|---|---|---|---|
+| AUTH-T1 | 2026-10-12 | docs | closed | Start the permanent ticket log in USER_STORIES.md | — |
