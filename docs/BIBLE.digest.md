@@ -1,7 +1,7 @@
 # MindAttic.Authentication - Bible Digest
 > AUTHORITATIVE - full detail in docs/BIBLE.md
 > generatedFrom: docs/BIBLE.md (#AUTH-§1, #AUTH-§3, #AUTH-§5, #AUTH-§9)
-> generated: 2026-10-03 by tools/codex.ps1 digest - do not hand-edit
+> generated: 2026-10-15 by tools/codex.ps1 digest - do not hand-edit
 
 ## The one sentence (AUTH-§1)
 MindAttic.Authentication is a maximally-secure, **Vault-backed** authentication engine shipped as a single Razor Class Library (NuGet) so every consuming MindAttic app (MindAttic.Ideas, Prose, Tutor, IdiotProof) authenticates **identically** — built to OWASP ASVS L2 (L3 where feasible) and NIST SP 800-63B AAL2, under a threat model that assumes a skilled attacker **and a future full database breach**.
