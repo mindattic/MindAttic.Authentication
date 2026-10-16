@@ -1,7 +1,7 @@
 ---
 codex: 1
 project: MindAttic.Authentication
-code: AUTH
+code: M.AUTH
 layer: amendments
 status: living
 updated: 2026-10-03

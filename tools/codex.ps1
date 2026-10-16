@@ -119,7 +119,7 @@ function Invoke-Doctor {
     $anchor = ($target -split '#', 2)[1]
     $pathPart = ($target -split '#', 2)[0]
     if ([string]::IsNullOrEmpty($anchor)) { continue }
-    if ($anchor -match '^AUTH-') {
+    if ($anchor -match '^M\.AUTH-') {
       # must resolve within this repo's anchor set
       if (-not $allIds.ContainsKey($anchor)) { Add-Err "broken cross-ref #$anchor in $($r.rel)" }
     }
@@ -135,7 +135,7 @@ function Invoke-Doctor {
         Add-Warn "HouseRules link target not resolvable: $pathPart (from $($r.rel))"
       }
     }
-    # section slugs (e.g. the section-sign anchors #AUTH-...4) are handled by the AUTH- branch above
+    # section slugs (e.g. the section-sign anchors #M.AUTH-...4) are handled by the M.AUTH- branch above
   }
 
   # 4. data/*.json validate against _schema/*.schema.json (basic required-key + id uniqueness)
@@ -185,7 +185,7 @@ function Invoke-Doctor {
           }
         }
         if (-not $named) {
-          $idm = [regex]::Match($ln, 'AUTH-US-[A-Za-z0-9]+')
+          $idm = [regex]::Match($ln, 'M\.AUTH-US-[A-Za-z0-9]+')
           Add-Err "checkmark story without a named test: $($idm.Value)"
         }
       }
@@ -265,10 +265,10 @@ function Invoke-Digest {
   # U+00A7 section sign, built at runtime so this script stays pure-ASCII on disk
   # (avoids the PS 5.1 source-encoding mangling the literal during parse).
   $SS = [char]0x00A7
-  $s1 = Get-Section $b "AUTH-${SS}1"
-  $s3 = Get-Section $b "AUTH-${SS}3"
-  $s5 = Get-Section $b "AUTH-${SS}5"
-  $s9 = Get-Section $b "AUTH-${SS}9"
+  $s1 = Get-Section $b "M.AUTH-${SS}1"
+  $s3 = Get-Section $b "M.AUTH-${SS}3"
+  $s5 = Get-Section $b "M.AUTH-${SS}5"
+  $s9 = Get-Section $b "M.AUTH-${SS}9"
 
   # status index from USER_STORIES. Emojis above U+FFFF are matched via their
   # UTF-16 surrogate-pair strings (PS 5.1 cannot [char]-cast a >U+FFFF code point).
@@ -286,26 +286,26 @@ function Invoke-Digest {
   $pending = @()
   if (Test-Path $Amend) {
     $am = Read-Utf8 $Amend
-    foreach ($m in [regex]::Matches($am, '(?m)^##\s+(AUTH-A\d+.*)$')) { $pending += $m.Groups[1].Value.Trim() }
+    foreach ($m in [regex]::Matches($am, '(?m)^##\s+(M\.AUTH-A\d+.*)$')) { $pending += $m.Groups[1].Value.Trim() }
   }
 
   $today = (Get-Date).ToString('yyyy-MM-dd')
   $sb = New-Object System.Text.StringBuilder
   [void]$sb.AppendLine("# MindAttic.Authentication - Bible Digest")
   [void]$sb.AppendLine("> AUTHORITATIVE - full detail in docs/BIBLE.md")
-  [void]$sb.AppendLine("> generatedFrom: docs/BIBLE.md (#AUTH-${SS}1, #AUTH-${SS}3, #AUTH-${SS}5, #AUTH-${SS}9)")
+  [void]$sb.AppendLine("> generatedFrom: docs/BIBLE.md (#M.AUTH-${SS}1, #M.AUTH-${SS}3, #M.AUTH-${SS}5, #M.AUTH-${SS}9)")
   [void]$sb.AppendLine("> generated: $today by tools/codex.ps1 digest - do not hand-edit")
   [void]$sb.AppendLine("")
-  [void]$sb.AppendLine("## The one sentence (AUTH-${SS}1)")
+  [void]$sb.AppendLine("## The one sentence (M.AUTH-${SS}1)")
   [void]$sb.AppendLine($s1)
   [void]$sb.AppendLine("")
-  [void]$sb.AppendLine("## What it is NOT (AUTH-${SS}3)")
+  [void]$sb.AppendLine("## What it is NOT (M.AUTH-${SS}3)")
   [void]$sb.AppendLine($s3)
   [void]$sb.AppendLine("")
-  [void]$sb.AppendLine("## The Laws (AUTH-${SS}5)")
+  [void]$sb.AppendLine("## The Laws (M.AUTH-${SS}5)")
   [void]$sb.AppendLine($s5)
   [void]$sb.AppendLine("")
-  [void]$sb.AppendLine("## Glossary (AUTH-${SS}9)")
+  [void]$sb.AppendLine("## Glossary (M.AUTH-${SS}9)")
   [void]$sb.AppendLine($s9)
   [void]$sb.AppendLine("")
   [void]$sb.AppendLine("## Status index (from docs/USER_STORIES.md)")

@@ -371,7 +371,7 @@ dotnet test MindAttic.Authentication.sln -c Debug
 # Pack into the shared local feed
 dotnet pack src/MindAttic.Authentication/MindAttic.Authentication.csproj -c Release -o C:\LocalNuGet</code></pre>
 <p><code>nuget.config</code> points restore at two sources: a <code>LocalNuGet</code> feed (<code>C:\LocalNuGet</code>) and nuget.org. Because <code>MA_DEV_AUTH</code> is defined only for <code>Debug</code>, a <code>Release</code> pack never contains the dev-only localhost auth bypass: pack <code>Debug</code> only for a local dev feed and <code>Release</code> for anything a real app will reference.</p>
-<p>A release is not done until every subscriber's <code>PackageReference</code> is bumped and rebuilds; see <a href="docs/BIBLE.md">docs/BIBLE.md</a> (<code>AUTH-LAW-7</code>).</p>
+<p>A release is not done until every subscriber's <code>PackageReference</code> is bumped and rebuilds; see <a href="docs/BIBLE.md">docs/BIBLE.md</a> (<code>M.AUTH-LAW-7</code>).</p>
 <h2 id="versioning">Versioning</h2>
 <p>Whole-number, major-only: <code>1.0.0</code>, then <code>2.0.0</code>, then <code>3.0.0</code>, and so on; minor and patch are always <code>0</code>. The current <code>&lt;Version&gt;</code> in the csproj is <code>6.0.0</code>. Consumers exact-pin. Crypto agility (Argon2 cost, pepper rotation) is in-band through configuration and <code>NeedsRehash</code>, not a version bump. Full policy: <a href="docs/VERSIONING.md">docs/VERSIONING.md</a>.</p>
 <h2 id="status">Status</h2>

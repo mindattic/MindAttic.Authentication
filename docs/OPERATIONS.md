@@ -71,7 +71,7 @@ Auth emails go through `IAuthEmailSender`, which `AddMindAtticAuthentication` ch
   `MindAttic__Auth__Reset__PublicBaseUrl` to the app's public https origin: a reset link must be absolute,
   so with SMTP on and no base URL the sender refuses reset mail and the startup log warns.
 - **Delivery is queued.** The reset request returns without waiting on SMTP, so a slow or failing mail
-  server cannot become an enumeration oracle ([LAW-3](BIBLE.md#AUTH-LAW-3)). Each message gets 3 attempts
+  server cannot become an enumeration oracle ([LAW-3](BIBLE.md#M.AUTH-LAW-3)). Each message gets 3 attempts
   (2 s, 4 s back-off); a final failure is logged as an error. Queued mail drains on graceful shutdown.
 - **Logs never carry** the reset link (a bearer credential) or the SMTP password; recipients are masked
   (`a***@example.com`). Confirm the startup line `auth email is delivered over SMTP (host:port as user from …)`.

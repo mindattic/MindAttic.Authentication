@@ -15,7 +15,7 @@ using MindAttic.Authentication.Web;
 namespace MindAttic.Authentication.Tests.Services;
 
 /// <summary>
-/// Security-alert emails (AUTH-US-E5). Each account event runs through the real services, the real
+/// Security-alert emails (M.AUTH-US-E5). Each account event runs through the real services, the real
 /// <see cref="AuthSecurityAlerts"/> and the real <see cref="SmtpAuthEmailSender"/>, ending at a fake
 /// transport — no socket is opened and no mail is sent.
 /// </summary>

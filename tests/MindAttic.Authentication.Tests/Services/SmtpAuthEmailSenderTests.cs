@@ -12,7 +12,7 @@ using MindAttic.Authentication.Web;
 namespace MindAttic.Authentication.Tests.Services;
 
 /// <summary>
-/// Auth email delivery (AUTH-US-E4). Every test runs against <see cref="FakeTransport"/> — no socket is ever
+/// Auth email delivery (M.AUTH-US-E4). Every test runs against <see cref="FakeTransport"/> — no socket is ever
 /// opened and no mail is ever sent.
 /// </summary>
 public class SmtpAuthEmailSenderTests

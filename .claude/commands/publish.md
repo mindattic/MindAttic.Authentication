@@ -7,7 +7,7 @@ allowed-tools: Read, Edit, Grep, Glob, Bash(dotnet pack:*), Bash(dotnet build:*)
 You are publishing a new release of **MindAttic.Authentication** and propagating it to every
 downstream subscriber. The library is consumed as a NuGet `PackageReference` (not a project
 reference), so nothing propagates automatically — you must bump, pack, and update each
-subscriber explicitly. See `docs/BIBLE.md` (AUTH-LAW-7) for the canonical rule.
+subscriber explicitly. See `docs/BIBLE.md` (M.AUTH-LAW-7) for the canonical rule.
 
 ## Target version
 

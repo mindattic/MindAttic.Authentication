@@ -256,7 +256,7 @@ dotnet pack src/MindAttic.Authentication/MindAttic.Authentication.csproj -c Rele
 
 `nuget.config` points restore at two sources: a `LocalNuGet` feed (`C:\LocalNuGet`) and nuget.org. Because `MA_DEV_AUTH` is defined only for `Debug`, a `Release` pack never contains the dev-only localhost auth bypass: pack `Debug` only for a local dev feed and `Release` for anything a real app will reference.
 
-A release is not done until every subscriber's `PackageReference` is bumped and rebuilds; see [docs/BIBLE.md](docs/BIBLE.md) (`AUTH-LAW-7`).
+A release is not done until every subscriber's `PackageReference` is bumped and rebuilds; see [docs/BIBLE.md](docs/BIBLE.md) (`M.AUTH-LAW-7`).
 
 ## Versioning
 
