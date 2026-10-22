@@ -84,5 +84,6 @@ Dependency-ordered toward the headline goal (one hardened engine for every consu
 | M.AUTH-T16 | 2026-10-16 | chore | open | Clean up code and docs: remove dead code, stale comments and outdated or duplicated docs, and simplify where behaviour doesn't change (/simplify); tests stay green | user request 2026-10-16: approved repo sweep |
 | M.AUTH-T17 | 2026-10-16 | docs | open | Bring README.md up to date with the code as it is now (what it is, setup, usage, commands, current state), following codex-standard/README-STYLE.md; README.htm regenerated if the repo has one | user request 2026-10-16: approved repo sweep |
 | M.AUTH-T18 | 2026-10-16 | docs | closed | Update USER_STORIES.md | — |
-| M.AUTH-T19 | 2026-10-19 | chore | open | Convert tracked source files to LF line endings via .gitattributes, per HOUSE-LAW-13 (low priority) | — |
+| M.AUTH-T19 | 2026-10-19 | chore | wont-do | Convert tracked source files to LF line endings via .gitattributes, per HOUSE-LAW-13 (low priority) | — |
 | M.AUTH-T20 | 2026-10-20 | docs | open | Publish MindAttic.Authentication docs to GitHub Pages via the shared Toolkit DocFX pipeline: run adopt-docs-site.ps1 (README.md as home page, docs/*.md as articles, API reference only where the code builds in CI), enable Pages with build_type=workflow, set the repo homepage URL, retire tools/build-readme.ps1 and README.htm, confirm the docs Actions run is green and https://mindattic.github.io/MindAttic.Authentication/ returns 200. Depends on MAT-T8. | — |
+| M.AUTH-T21 | 2026-10-22 | docs | closed | Update USER_STORIES.md | — |
