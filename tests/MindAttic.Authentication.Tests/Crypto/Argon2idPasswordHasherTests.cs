@@ -95,8 +95,10 @@ public sealed class Argon2idPasswordHasherTests
     {
         using var hasher = Build.Hasher();
         var stored = hasher.Hash(Password);
-        // Flip the last character of the hash segment.
-        var tampered = stored.Phc[..^1] + (stored.Phc[^1] == 'A' ? 'B' : 'A');
+        // Flip a character well inside the hash segment: the final base64 character of a 32-byte hash also
+        // carries discarded padding bits, so changing it can leave the decoded bytes (and the hash) unchanged.
+        var i = stored.Phc.Length - 10;
+        var tampered = stored.Phc[..i] + (stored.Phc[i] == 'A' ? 'B' : 'A') + stored.Phc[(i + 1)..];
         Assert.That(hasher.Verify(Password, tampered, stored.PepperKeyId, null).Succeeded, Is.False);
     }
 
