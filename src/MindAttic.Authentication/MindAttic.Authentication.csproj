@@ -5,7 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <Version>6.0.0</Version>
+    <!-- 7.0.0: MindAtticAuthSettings + MindAtticAuthOptions.SettingsSection so hosts edit auth options on their
+         MindAttic Vault tab (LAMP); adds the MindAttic.Vault 7 dependency for the settings attributes. -->
+    <Version>7.0.0</Version>
     <RootNamespace>MindAttic.Authentication</RootNamespace>
     <!-- Maximally-secure, Vault-backed authentication for the MindAttic ecosystem.
          OWASP ASVS L2/L3 · NIST SP 800-63B AAL2. -->
@@ -26,8 +28,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Secrets resolve through plain IConfiguration (the host fills MindAttic:Vault:* via MindAttic.Vault,
-         env vars or Key Vault) — no MindAttic.Vault package dependency. -->
+    <!-- Secrets still resolve through plain IConfiguration (the host fills MindAttic:Vault:* via MindAttic.Vault,
+         env vars or Key Vault). The Vault package is only for the [Setting] attributes on the option classes. -->
+    <PackageReference Include="MindAttic.Vault" Version="7.0.0" />
     <!-- SMTP delivery for auth email (SmtpAuthEmailSender) — same library/version as MindAttic.Psst. -->
     <PackageReference Include="MailKit" Version="4.16.0" />
     <!-- Argon2id (RFC 9106) — pure-managed, maintained. Exact-pinned per spec. -->

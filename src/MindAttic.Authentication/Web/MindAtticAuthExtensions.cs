@@ -29,6 +29,13 @@ public sealed class MindAtticAuthOptions
     public string? DevKeyRingPath { get; set; }
     /// <summary>True in production → fail-closed if <see cref="ConfigureDataProtection"/> wasn't supplied.</summary>
     public bool IsProduction { get; set; }
+
+    /// <summary>
+    /// Configuration section holding Crypto/Policy/Mfa/Session/Reset. Hosts whose settings live in MindAttic Vault
+    /// embed <see cref="MindAtticAuthSettings"/> as an <c>Auth</c> property and point this at
+    /// <c>MindAttic:Settings:{AppId}:auth</c> (with <c>AddMindAtticVaultConfiguration()</c> in the host).
+    /// </summary>
+    public string SettingsSection { get; set; } = MindAtticAuthSettings.LegacySection;
 }
 
 public static class MindAtticAuthExtensions
@@ -50,15 +57,16 @@ public static class MindAtticAuthExtensions
         services.AddScoped<IAuthDataContext>(sp => sp.GetRequiredService<TContext>());
 
         // Options (non-secret) — floor-validated at startup, fail-closed.
-        services.AddOptions<AuthCryptoOptions>().Bind(config.GetSection("MindAttic:Auth:Crypto"))
+        var section = o.SettingsSection;
+        services.AddOptions<AuthCryptoOptions>().Bind(config.GetSection($"{section}:Crypto"))
             .Validate(c => { c.ValidateOrThrow(); return true; }, "Invalid AuthCryptoOptions").ValidateOnStart();
-        services.AddOptions<AuthPolicyOptions>().Bind(config.GetSection("MindAttic:Auth:Policy"));
-        services.AddOptions<MfaOptions>().Bind(config.GetSection("MindAttic:Auth:Mfa"));
-        services.AddOptions<AuthSessionOptions>().Bind(config.GetSection("MindAttic:Auth:Session"));
-        services.AddOptions<AuthResetOptions>().Bind(config.GetSection("MindAttic:Auth:Reset"));
-        var session = config.GetSection("MindAttic:Auth:Session").Get<AuthSessionOptions>() ?? new AuthSessionOptions();
-        var mfaOptions = config.GetSection("MindAttic:Auth:Mfa").Get<MfaOptions>() ?? new MfaOptions();
-        var policyOptions = config.GetSection("MindAttic:Auth:Policy").Get<AuthPolicyOptions>() ?? new AuthPolicyOptions();
+        services.AddOptions<AuthPolicyOptions>().Bind(config.GetSection($"{section}:Policy"));
+        services.AddOptions<MfaOptions>().Bind(config.GetSection($"{section}:Mfa"));
+        services.AddOptions<AuthSessionOptions>().Bind(config.GetSection($"{section}:Session"));
+        services.AddOptions<AuthResetOptions>().Bind(config.GetSection($"{section}:Reset"));
+        var session = config.GetSection($"{section}:Session").Get<AuthSessionOptions>() ?? new AuthSessionOptions();
+        var mfaOptions = config.GetSection($"{section}:Mfa").Get<MfaOptions>() ?? new MfaOptions();
+        var policyOptions = config.GetSection($"{section}:Policy").Get<AuthPolicyOptions>() ?? new AuthPolicyOptions();
         services.AddSingleton(PasswordPolicyDescriptor.From(policyOptions));   // UI-facing policy description
 
         services.TryAddSingleton(TimeProvider.System);

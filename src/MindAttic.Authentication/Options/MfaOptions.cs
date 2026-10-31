@@ -1,3 +1,5 @@
+using MindAttic.Vault.Settings.Manifest;
+
 namespace MindAttic.Authentication.Options;
 
 /// <summary>TOTP + recovery-code settings (RFC 6238 pinned values).</summary>
@@ -14,5 +16,6 @@ public sealed class MfaOptions
     public int RecoveryCodeBytes { get; set; } = 10;  // ~80 bits before formatting (>50-bit floor)
     public int PendingEnrollmentMinutes { get; set; } = 10;
     /// <summary>If true, accounts in the Admin role must enroll MFA before reaching admin surfaces.</summary>
+    [Setting("Require MFA for admins", Help = "Admins must enroll an authenticator before reaching admin pages. Off makes admin role-only.")]
     public bool RequireForAdmin { get; set; } = true;
 }
