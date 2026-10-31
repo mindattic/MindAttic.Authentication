@@ -102,4 +102,13 @@ public sealed class AuthCryptoOptionsTests
         var o = Valid(); o.MaxConcurrentHashes = 3;
         Assert.That(o.EffectiveMaxConcurrentHashes, Is.EqualTo(3));
     }
+
+    [Test]
+    public void EffectiveMaxConcurrentHashes_IsNeverSerialized()
+    {
+        // M.AUTH-T25: hosts store these options in their Vault settings.json; a computed value must not be written there.
+        var json = System.Text.Json.JsonSerializer.Serialize(Valid(), new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+        Assert.That(json, Does.Not.Contain("effectiveMaxConcurrentHashes").IgnoreCase);
+        Assert.That(json, Does.Contain("maxConcurrentHashes"));
+    }
 }

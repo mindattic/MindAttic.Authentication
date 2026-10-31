@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MindAttic.Authentication.Options;
 
 /// <summary>
@@ -45,5 +47,10 @@ public sealed class AuthCryptoOptions
         if (string.IsNullOrWhiteSpace(CurrentPepperKeyId)) throw new InvalidOperationException("CurrentPepperKeyId is required.");
     }
 
+    /// <summary>
+    /// The concurrency actually used: <see cref="MaxConcurrentHashes"/>, or this machine's processor count when it is 0.
+    /// Computed, so never stored: a host's Vault settings.json would otherwise carry one PC's core count (M.AUTH-T25).
+    /// </summary>
+    [JsonIgnore]
     public int EffectiveMaxConcurrentHashes => MaxConcurrentHashes > 0 ? MaxConcurrentHashes : Environment.ProcessorCount;
 }
