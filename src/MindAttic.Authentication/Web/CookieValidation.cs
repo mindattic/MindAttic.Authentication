@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using MindAttic.Authentication.Data;
 using MindAttic.Authentication.Options;
 using MindAttic.Authentication.Services;
 
@@ -53,6 +55,20 @@ internal static class CookieValidation
                 ctx.RejectPrincipal();
                 await ctx.HttpContext.SignOutAsync(MaSchemes.Cookie);
                 return;
+            }
+            // Per-session revoke (logout) and the absolute lifetime live on the AuthSession row; the cookie's own
+            // expiry slides on every renewal, so without this a logged-out or 8h-old cookie stays valid on HTTP.
+            if (Guid.TryParse(ctx.Principal?.FindFirst(MaClaims.SessionId)?.Value, out var sessionId))
+            {
+                var db = scope.ServiceProvider.GetRequiredService<IAuthDataContext>();
+                var row = await db.AuthSessions.AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == sessionId, ctx.HttpContext.RequestAborted);
+                if (row is null || row.RevokedUtc is not null || row.AbsoluteExpiryUtc <= now.UtcDateTime)
+                {
+                    ctx.RejectPrincipal();
+                    await ctx.HttpContext.SignOutAsync(MaSchemes.Cookie);
+                    return;
+                }
             }
             ctx.Properties.Items["sc"] = now.ToString("O");
         }

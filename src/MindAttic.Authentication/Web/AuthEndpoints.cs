@@ -117,7 +117,7 @@ public static class AuthEndpoints
     }
 
     private static async Task<IResult> ChangePasswordAsync(
-        HttpContext http, IAntiforgery antiforgery, MaSvc.IPasswordChangeService changer)
+        HttpContext http, IAntiforgery antiforgery, MaSvc.IPasswordChangeService changer, MaSvc.IUserStore users)
     {
         if (!await ValidateAntiforgeryAsync(http, antiforgery)) return Results.BadRequest();
         if (!Guid.TryParse(http.User.FindFirst(MaClaims.UserId)?.Value, out var uid))
@@ -127,7 +127,25 @@ public static class AuthEndpoints
         var current = form["currentPassword"].ToString();
         var next = form["newPassword"].ToString();
         var result = await changer.ChangeAsync(uid, current, next, http.RequestAborted);
+        if (result.Ok) await RefreshCurrentSessionAsync(http, users, uid);
         return Results.Redirect(result.Ok ? "/account?changed=1" : "/account/change-password?error=1");
+    }
+
+    /// <summary>
+    /// The change rotated the SecurityStamp so OTHER sessions die; re-issue THIS session's cookie with the new
+    /// stamp (and without the must-change-password claim) so the current session survives (SECURITY_SPEC).
+    /// </summary>
+    private static async Task RefreshCurrentSessionAsync(HttpContext http, MaSvc.IUserStore users, Guid uid)
+    {
+        var auth = await http.AuthenticateAsync(MaSchemes.Cookie);
+        var user = await users.FindByIdAsync(uid, http.RequestAborted);
+        if (!auth.Succeeded || auth.Principal is null || auth.Properties is null || user is null) return;
+        var claims = auth.Principal.Claims
+            .Where(c => c.Type != MaClaims.SecurityStamp && c.Type != MaClaims.MustChangePassword)
+            .Select(c => new Claim(c.Type, c.Value, c.ValueType, c.Issuer, c.OriginalIssuer))
+            .Append(new Claim(MaClaims.SecurityStamp, user.SecurityStamp));
+        var identity = new ClaimsIdentity(claims, MaSchemes.Cookie);
+        await http.SignInAsync(MaSchemes.Cookie, new ClaimsPrincipal(identity), auth.Properties);
     }
 
     private static async Task<IResult> ResetRequestAsync(

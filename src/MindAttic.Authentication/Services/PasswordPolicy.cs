@@ -110,6 +110,15 @@ public sealed class PasswordPolicy(
 
     private async Task<bool> IsReusedAsync(Guid userId, string password, CancellationToken ct)
     {
+        // "current + last N" (SECURITY_SPEC): the current password is not in history until it is replaced.
+        var current = await db.AuthUsers.AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.PasswordHash, u.PasswordPepperKeyId, u.LegacyHashScheme })
+            .FirstOrDefaultAsync(ct);
+        if (current is not null && !string.IsNullOrEmpty(current.PasswordHash)
+            && hasher.Verify(password, current.PasswordHash, current.PasswordPepperKeyId, current.LegacyHashScheme).Succeeded)
+            return true;
+
         var recent = await db.AuthPasswordHistory.AsNoTracking()
             .Where(h => h.UserId == userId)
             .OrderByDescending(h => h.CreatedUtc)

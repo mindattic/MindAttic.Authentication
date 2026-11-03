@@ -14,9 +14,9 @@ public static class UrlSafety
         if (url[0] == '/')
             return url.Length == 1 || (url[1] != '/' && url[1] != '\\');
 
-        // "~/path"
+        // "~/path" but not "~//host" or "~/\host" (app-relative resolution turns those into "//host")
         if (url[0] == '~' && url.Length > 1 && url[1] == '/')
-            return true;
+            return url.Length == 2 || (url[2] != '/' && url[2] != '\\');
 
         return false;
     }

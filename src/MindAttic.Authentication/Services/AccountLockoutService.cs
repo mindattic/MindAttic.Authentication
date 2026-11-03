@@ -68,9 +68,11 @@ public sealed class AccountLockoutService(IAuthDataContext db, TimeProvider cloc
                 row.LastFailureUtc = now;
                 row.NextAttemptAllowedUtc = now + BackoffFor(row.ConsecutiveFailures);
             }
+            // On failure, detach the rejected entries: otherwise the retry re-reads the same stale tracked row
+            // (EF never overwrites a tracked entity) and the scoped context's next SaveChanges re-throws.
             try { await db.SaveChangesAsync(ct); return; }
-            catch (DbUpdateConcurrencyException) { /* retry once */ }
-            catch (DbUpdateException) when (attempt == 0) { /* unique-key race on insert; retry as update */ }
+            catch (DbUpdateConcurrencyException ex) { Detach(ex); /* retry once */ }
+            catch (DbUpdateException ex) when (attempt == 0) { Detach(ex); /* unique-key race on insert; retry as update */ }
         }
     }
 
@@ -82,7 +84,12 @@ public sealed class AccountLockoutService(IAuthDataContext db, TimeProvider cloc
         if (row is null) return;
         db.AuthLoginThrottles.Remove(row);
         try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateConcurrencyException) { /* already gone / changed — benign */ }
+        catch (DbUpdateConcurrencyException ex) { Detach(ex); /* already gone / changed — benign */ }
+    }
+
+    private static void Detach(DbUpdateException ex)
+    {
+        foreach (var entry in ex.Entries) entry.State = EntityState.Detached;
     }
 
     private static byte[] KeyHash(ThrottleScope scope, string rawKey) =>

@@ -17,6 +17,9 @@ public static class AuthKeys
     {
         if (string.IsNullOrWhiteSpace(ip)) return "unknown";
         if (!IPAddress.TryParse(ip, out var addr)) return "unknown";
+        // Dual-mode (IPv6Any) Kestrel reports IPv4 clients as ::ffff:a.b.c.d; the /64 cut below would collapse
+        // EVERY IPv4 client into one "::/64" throttle bucket, so unwrap to the real IPv4 address first.
+        if (addr.IsIPv4MappedToIPv6) addr = addr.MapToIPv4();
         if (addr.AddressFamily == AddressFamily.InterNetworkV6)
         {
             var bytes = addr.GetAddressBytes();   // 16 bytes
