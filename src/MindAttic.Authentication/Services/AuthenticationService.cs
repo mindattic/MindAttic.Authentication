@@ -176,13 +176,32 @@ public sealed class AuthenticationService(
         foreach (var rc in candidates)
         {
             if (hasher.Verify(code.Trim(), rc.CodeHash, rc.CodePepperKeyId, null).Succeeded)
-            {
-                rc.UsedUtc = clock.GetUtcNow().UtcDateTime;
-                await db.SaveChangesAsync(ct);
-                return true;
-            }
+                return await MarkRecoveryCodeUsedAsync(rc, clock.GetUtcNow().UtcDateTime, ct);
         }
         return false;
+    }
+
+    /// <summary>
+    /// Single-use, atomically: on a relational store the claim is one conditional
+    /// <c>UPDATE ... SET UsedUtc = @now WHERE Id = @id AND UsedUtc IS NULL</c>, so of two concurrent
+    /// redemptions of the same code exactly one sees a row affected and the other fails (no concurrency
+    /// token or schema change needed). Non-relational stores (EF in-memory tests) fall back to a tracked save.
+    /// </summary>
+    private async Task<bool> MarkRecoveryCodeUsedAsync(AuthRecoveryCode rc, DateTime now, CancellationToken ct)
+    {
+        if (db is DbContext ctx && ctx.Database.IsRelational())
+        {
+            var claimed = await db.AuthRecoveryCodes
+                .Where(c => c.Id == rc.Id && c.UsedUtc == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.UsedUtc, now), ct);
+            // The tracked copy is now stale; drop it so nothing later in this scope reads or re-saves it.
+            ctx.Entry(rc).State = EntityState.Detached;
+            return claimed == 1;
+        }
+
+        rc.UsedUtc = now;
+        await db.SaveChangesAsync(ct);
+        return true;
     }
 
     private async Task<Guid> CreateSessionAsync(AuthUser user, string sourceIp, string userAgent, DateTime now, CancellationToken ct)

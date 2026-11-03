@@ -32,7 +32,8 @@ public sealed class MfaEnrollmentService(
     IAuthAuditWriter audit,
     IOptions<MfaOptions> mfaOptions,
     TimeProvider clock,
-    IAuthSecurityAlerts? alerts = null) : IMfaEnrollmentService
+    IAuthSecurityAlerts? alerts = null,
+    IAccountLockoutService? lockout = null) : IMfaEnrollmentService
 {
     private readonly IDataProtector _totpProtector = dpProvider.CreateProtector("MindAttic.Authentication.Totp.v1");
     private readonly MfaOptions _mfa = mfaOptions.Value;
@@ -61,9 +62,22 @@ public sealed class MfaEnrollmentService(
         var user = await users.FindByIdAsync(userId, ct);
         if (user is null || !user.IsActive) return new(false, null, "Enrollment failed.");
 
-        // Fresh password reauth (sensitive operation).
+        // Fresh password reauth (sensitive operation), behind the same persistent account backoff as login so
+        // a hijacked session can't use this form as an unthrottled password oracle. Checked before any Argon2.
+        if (lockout is not null && !(await lockout.CheckAsync(ThrottleScope.Account, user.UserName, ct)).Allowed)
+        {
+            hasher.VerifyDecoy(currentPassword);   // uniform cost
+            await audit.WriteAsync(new AuthAuditEntry(AuthEventType.MfaEnroll, AuthOutcome.Throttled, AuthReasonCode.Locked,
+                user.Id, user.UserName, user.UserName), ct);
+            return new(false, null, "Too many attempts. Try again later.");
+        }
         if (!hasher.Verify(currentPassword, user.PasswordHash, user.PasswordPepperKeyId, user.LegacyHashScheme).Succeeded)
+        {
+            if (lockout is not null) await lockout.RecordFailureAsync(ThrottleScope.Account, user.UserName, ct);
+            await audit.WriteAsync(new AuthAuditEntry(AuthEventType.MfaEnroll, AuthOutcome.Failure, AuthReasonCode.BadPassword,
+                user.Id, user.UserName, user.UserName), ct);
             return new(false, null, "Enrollment failed.");
+        }
 
         var mfa = await users.FindMfaAsync(userId, ct);
         var now = clock.GetUtcNow().UtcDateTime;
