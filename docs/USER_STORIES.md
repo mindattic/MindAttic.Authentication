@@ -92,3 +92,8 @@ Dependency-ordered toward the headline goal (one hardened engine for every consu
 | M.AUTH-T24 | 2026-10-31 | fix | closed | Verify_TamperedHash_Fails is flaky: flipping the last base64 char of a 32-byte hash can change only discarded padding bits, so the 'tampered' hash still verifies about 1 run in 64; tamper a middle character instead | 6ba846e Verify_TamperedHash_Fails (30/30) |
 | M.AUTH-T25 | 2026-10-31 | fix | closed | AuthCryptoOptions.EffectiveMaxConcurrentHashes (computed from this PC's processor count) is serialized into every host's Vault settings.json (Tutor, Ideas: auth:crypto:effectiveMaxConcurrentHashes); mark it [JsonIgnore] | 8faf154 AuthCryptoOptionsTests.EffectiveMaxConcurrentHashes_IsNeverSerialized (built, not run) |
 | M.AUTH-T26 | 2026-10-31 | docs | closed | Update USER_STORIES.md | — |
+| M.AUTH-T27 | 2026-11-02 | docs | open | Adopt MindAttic.Agency docs-site pipeline, publish README to GitHub Pages (HOUSE-LAW-14) | — |
+| M.AUTH-T28 | 2026-11-02 | fix | closed | Bughunt sweep, two passes: find and fix real bugs across tracked source (user request 2026-11-02) | — |
+| M.AUTH-T29 | 2026-11-02 | fix | closed | Command pointer in .agent/commands said a literal $source instead of its legacy path (install.ps1 escaping bug fixed in MAT-T84); point it at the real source, or the global command when the project copy is gone | — |
+| M.AUTH-T30 | 2026-11-02 | fix | closed | Fix the open items the 2026-11-02 bughunt left for decision (recovery-code race, MFA-setup password throttle, Pkcs NU1902/NU1903, other notes) | — |
+| M.AUTH-T31 | 2026-11-10 | chore | closed | Crash recovery: commit the command-catalog sync (.agent/commands/*.md) and regenerated docs/USER_STORIES.md left uncommitted by the session crash | — |
